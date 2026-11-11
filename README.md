@@ -1,6 +1,6 @@
 <div align="center">
 
-# WebOS TV Player + Home
+# WebOS Home + TV Player
 
 **Tela inicial (Home) própria e Player de TV para LG webOS, com o trabalho pesado num servidor de casa.**
 
