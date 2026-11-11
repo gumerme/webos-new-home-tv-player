@@ -12,8 +12,8 @@ Requisitos: Linux x86 com Docker e Docker Compose, na mesma rede das TVs. Os exe
 
 ```bash
 # no servidor, como root
-git clone https://github.com/gumerme/webos-tv-player.git /opt/webos-tv-player
-mkdir -p /srv/casa && cp -a /opt/webos-tv-player/homeserver/. /srv/casa/
+git clone https://github.com/gumerme/webos-new-home-tv-player.git /opt/webos-new-home-tv-player
+mkdir -p /srv/casa && cp -a /opt/webos-new-home-tv-player/homeserver/. /srv/casa/
 cd /srv/casa
 sh scripts/instalar.sh          # cria o .env (chmod 600) com senha do banco e token da casa aleatórios
 vi .env                         # preencha TMDB_TOKEN (obrigatório); CLIMA_*, TRAKT_CLIENT_ID e OPENSUBTITLES_* são opcionais

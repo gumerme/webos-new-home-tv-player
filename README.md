@@ -41,8 +41,8 @@ O repositório foi preparado para ser instalado pelo [Claude Code](https://claud
 Basta clonar e abrir:
 
 ```bash
-git clone https://github.com/gumerme/webos-tv-player.git
-cd webos-tv-player
+git clone https://github.com/gumerme/webos-new-home-tv-player.git
+cd webos-new-home-tv-player
 claude
 ```
 
