@@ -165,7 +165,6 @@ Prints da TV real (1920×1080). O último é do simulador, com o homeserver desl
 
 ## Créditos e avisos
 
-- Home baseada no [FreeMyTV para LG webOS](https://github.com/danielthejoker18/FreeMyTvWebOS) (MIT).
 - [hls.js](https://github.com/video-dev/hls.js) (Apache-2.0), fontes Inter e Outfit (OFL), ícones Tabler (MIT),
   logos de serviços do [Simple Icons](https://simpleicons.org) (CC0; as marcas pertencem aos donos).
 - Este produto usa a API do TMDB, mas não é endossado nem certificado pelo TMDB. Dados de ranking do JustWatch,
