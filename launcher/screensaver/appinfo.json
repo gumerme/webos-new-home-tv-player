@@ -1,0 +1,19 @@
+{
+  "id": "com.webos.app.screensaver",
+  "version": "1.0.0",
+  "vendor": "WebOS TV",
+  "type": "web",
+  "uiRevision": 2,
+  "main": "index.html",
+  "title": "Proteção de Tela",
+  "icon": "icon.png",
+  "bgColor": "#000000",
+  "resolution": "1920x1080",
+  "visible": false,
+  "defaultWindowType": "screenSaver",
+  "noSplashOnLaunch": true,
+  "spinnerOnLaunch": false,
+  "trustLevel": "trusted",
+  "handlesRelaunch": true,
+  "disableBackHistoryAPI": true
+}

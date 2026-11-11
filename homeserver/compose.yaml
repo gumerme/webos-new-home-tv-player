@@ -1,0 +1,145 @@
+# Casa — homeserver (Rocky Linux 10, Docker Compose)
+# Subir/atualizar:   docker compose up -d --build
+name: casa
+
+x-casa-env: &casa-env
+  TZ: ${TZ}
+  DB_HOST: 127.0.0.1
+  DB_NAME: casa
+  DB_USER: casa
+  DB_PASS: ${POSTGRES_PASSWORD}
+  CASA_TOKEN: ${CASA_TOKEN}
+  HOMEBRIDGE_PIN: ${HOMEBRIDGE_PIN:-}
+  TARIFA_KWH: ${TARIFA_KWH:-}
+  CLIMA_CIDADE: ${CLIMA_CIDADE:-}
+  CLIMA_LAT: ${CLIMA_LAT:-}
+  CLIMA_LON: ${CLIMA_LON:-}
+  TMDB_TOKEN: ${TMDB_TOKEN:-}
+  TRAKT_CLIENT_ID: ${TRAKT_CLIENT_ID:-}
+  OPENSUBTITLES_KEY: ${OPENSUBTITLES_KEY:-}
+  OPENSUBTITLES_USUARIO: ${OPENSUBTITLES_USUARIO:-}
+  OPENSUBTITLES_SENHA: ${OPENSUBTITLES_SENHA:-}
+
+services:
+  # Sistema da casa (PHP): painel + API em :8080. Código em ./casa (montado, sem rebuild).
+  casa-web:
+    build: ./casa
+    image: casa-php:local
+    container_name: casa-web
+    network_mode: host
+    restart: unless-stopped
+    environment: *casa-env
+    volumes:
+      - ./casa:/app:z
+      - /etc/os-release:/host/os-release:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Worker: único processo que fala com os aparelhos (fila de comandos + estado).
+  # Rede do host: Wake-on-LAN por broadcast e acesso direto às TVs.
+  casa-worker:
+    build: ./casa
+    image: casa-php:local
+    container_name: casa-worker
+    network_mode: host
+    restart: unless-stopped
+    command: ["php", "/app/bin/worker.php"]
+    environment: *casa-env
+    volumes:
+      - ./casa:/app:z
+      # Métricas do servidor: energia (RAPL, o Docker esconde /sys/class/powercap) e espaço do /home
+      - /sys/devices/virtual/powercap:/host/powercap:ro
+      - /home:/host/home:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Player 2.0 (WebOS TV Player): catálogo IPTV, TMDB, Top 10, jogos, EPG, legendas, recomendações e avisos.
+  # Tarefas em play.tarefa; o painel força uma com NOTIFY play_tarefa. Código em ./casa (sem rebuild).
+  casa-play:
+    build: ./casa
+    image: casa-php:local
+    container_name: casa-play
+    network_mode: host
+    restart: unless-stopped
+    command: ["php", "/app/bin/play-worker.php"]
+    environment: *casa-env
+    volumes:
+      - ./casa:/app:z
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Filtragem colaborativa do Player (MovieLens 32M + implicit/ALS, Python). Grava os vizinhos em play.cache 'cf:ml:*'.
+  # Dados e modelo em ./rec/dados (~1 GB). Treina uma vez; refaz os vizinhos do catálogo 1x por dia.
+  casa-rec:
+    build: ./rec
+    image: casa-rec:local
+    container_name: casa-rec
+    network_mode: host
+    restart: unless-stopped
+    mem_limit: 3500m
+    cpus: 3
+    environment:
+      TZ: ${TZ}
+      DB_HOST: 127.0.0.1
+      DB_NAME: casa
+      DB_USER: casa
+      DB_PASS: ${POSTGRES_PASSWORD}
+    volumes:
+      - ./rec/dados:/dados:z
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Ponte com o Apple Home / Siri. Plugin próprio em ./homebridge-casa.
+  # UI do Homebridge em 127.0.0.1:8581 ("host" no config.json): só por túnel SSH.
+  homebridge:
+    image: homebridge/homebridge:latest
+    container_name: homebridge
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ}
+      HOMEBRIDGE_CONFIG_UI_PORT: 8581
+    volumes:
+      - ./homebridge:/homebridge:Z
+      - ./homebridge-casa:/plugins/homebridge-casa:ro,z
+    depends_on:
+      - casa-web
+
+  # Matter (para aparelhos Matter / gateway Zigbee Tongou). Worker fala em ws://127.0.0.1:5580/ws
+  matter-server:
+    image: ghcr.io/home-assistant-libs/python-matter-server:stable
+    container_name: matter-server
+    network_mode: host
+    restart: unless-stopped
+    security_opt:
+      - label=disable
+    # Só na própria máquina: o WebSocket do Matter não tem autenticação.
+    command: --storage-path /data --paa-root-cert-dir /data/credentials --listen-address 127.0.0.1
+    volumes:
+      - ./matter:/data
+      - /run/dbus:/run/dbus:ro
+
+  postgres:
+    image: postgres:17-alpine
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: casa
+      POSTGRES_USER: casa
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      TZ: ${TZ}
+    volumes:
+      - ./postgres/data:/var/lib/postgresql/data:Z
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U casa -d casa"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+# Acesso remoto: Tailscale instalado direto no sistema (dnf, tailscaled.service), não em container.

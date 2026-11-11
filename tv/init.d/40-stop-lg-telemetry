@@ -1,0 +1,23 @@
+#!/bin/sh
+# Stops LG telemetry/feature daemons the OS starts at every boot (webOS 4.x uses upstart,
+# so `stop <job>`; the read-only rootfs means they can't be disabled for good).
+# uploadd/remotelogger: log upload, crashreportd: crash reports to LG, contentminer:
+# viewing data (ACR), user-context-manager: viewing context for recommendations (~5% CPU
+# idle), voice*: voice assistant, iot-client: ThinQ.
+for j in uploadd remotelogger crashreportd contentminer user-context-manager voiceconductor voiceinput iot-client; do
+    stop "$j" >/dev/null 2>&1
+done
+
+# 674 MB of RAM and swap on the eMMC: the default swappiness of 100 pushed the Home out
+# to swap early, so going back to it stalled. 60 is the Linux default.
+echo 60 > /proc/sys/vm/swappiness
+
+# No app preloading (user's choice): webos-preload-manager opens Netflix/YouTube hidden
+# at boot (~140 MB). Stop it, then close whatever it already opened in the background.
+stop webos-preload-manager >/dev/null 2>&1
+fg=$(luna-send -n 1 luna://com.webos.applicationManager/getForegroundAppInfo '{}' | sed -n 's/.*"appId":"\([^"]*\)".*/\1/p')
+for a in netflix youtube.leanback.v4 amazon com.disney.disneyplus-prod com.wbd.stream; do
+    [ "$a" = "$fg" ] && continue
+    luna-send -n 1 luna://com.webos.applicationManager/running '{}' | grep -q "\"id\":\"$a\"" \
+        && luna-send -n 1 luna://com.webos.applicationManager/closeByAppId "{\"id\":\"$a\"}" >/dev/null
+done

@@ -1,0 +1,5 @@
+#!/bin/sh
+# Starts the WebOS TV root helper (running apps, close, icons) on 127.0.0.1:3911.
+netstat -ltn 2>/dev/null | grep -q '127.0.0.1:3911 ' && exit 0
+PY=$(command -v python3 || command -v python)
+setsid $PY /var/lib/webosbrew/webostv-helper/helper.py </dev/null >/dev/null 2>&1 &

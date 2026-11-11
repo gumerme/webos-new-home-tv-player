@@ -1,0 +1,6 @@
+#!/bin/sh
+# Inicia o atualizador do WebOS TV Player: busca versões publicadas no homeserver e instala com o
+# Player fechado. Desfazer: apagar este arquivo e reiniciar a TV.
+A=/var/lib/webosbrew/webostv-play/atualizador.sh
+[ -f "$A" ] || exit 0
+setsid nice -n 10 sh "$A" laco </dev/null >/dev/null 2>&1 &

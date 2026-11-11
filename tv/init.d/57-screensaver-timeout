@@ -1,0 +1,32 @@
+#!/bin/sh
+# Screensaver after 5 minutes without input, on both TVs (user's choice, 2026-11-01).
+# nopd starts the screensaver from the [TIMER]ScreenSaver rule in /etc/palm/nop-conf.json:
+# webOS 4 reads the minutes from a factory property (60 on the 43LM6300), webOS 10 from
+# option.screenSaverTimer, whose rules only accept 3/10/20/30. A RAM copy with that one
+# interval set to a constant 5 minutes is bind-mounted over the file (nothing persistent
+# changes), then nopd is restarted to read it.
+#
+# Undo: remove this file from init.d and reboot.
+
+MINUTES=5
+CONF=/etc/palm/nop-conf.json
+COPY=/tmp/nop-conf.json
+
+grep -q " $CONF " /proc/mounts && exit 0
+PY=$(command -v python3 || command -v python)
+MINUTES=$MINUTES $PY - "$CONF" "$COPY" <<'EOF' || exit 1
+import os, re, sys
+src = open(sys.argv[1], 'rb').read()
+rule = re.compile(br'("name"\s*:\s*"\[TIMER\]ScreenSaver"\s*,\s*"description"\s*:\s*"[^"]*"\s*,\s*"interval"\s*:\s*)\{.*?"unit"\s*:\s*"minute"\s*\}', re.S)
+out, n = rule.subn(br'\1{"type": "constant", "constant": ' + os.environ['MINUTES'].encode() + br', "adjust": 0, "unit": "minute"}', src)
+if n != 1:
+    sys.exit(1)  # rule not found as expected: leave LG's file alone
+open(sys.argv[2], 'wb').write(out)
+EOF
+mount --bind "$COPY" "$CONF"
+
+if command -v systemctl >/dev/null 2>&1; then
+    systemctl restart nopd
+else
+    restart nopd
+fi

@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Proteção de Tela</title>
+    <style>
+        :root {
+            --text-primary: #f5f5f7;
+            --text-secondary: rgba(245, 245, 247, 0.65);
+            --text-hint: rgba(245, 245, 247, 0.55);
+            --accent: #0a84ff;
+            --line: rgba(255, 255, 255, 0.13);
+        }
+
+        html, body {
+            margin: 0;
+            width: 1920px;
+            height: 1080px;
+            overflow: hidden;
+            background: #000;
+            color: var(--text-primary);
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            cursor: none;
+        }
+
+        body {
+            background: radial-gradient(circle at 50% -10%, #0e1424 0%, #05070c 60%, #000000 100%);
+        }
+
+        /* Drifts a little every few minutes so nothing sits on the same pixels for hours.
+           Margins rather than flex gap/inset: webOS 4.x ships Chromium 53, which has neither. */
+        .stage {
+            position: absolute;
+            top: 0; right: 0; bottom: 0; left: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 4s ease-in-out;
+        }
+
+        .clock-wrap { position: relative; width: 440px; height: 440px; flex-shrink: 0; margin-right: 110px; }
+        .clock, .sweep { position: absolute; top: 0; left: 0; width: 440px; height: 440px; }
+
+        /* LG-style motion: a fading arc circles the dial once a minute (a seconds sweep),
+           started at the current second. Rotating a whole layer keeps it on the compositor. */
+        .sweep { animation: sweep 60s linear infinite; will-change: transform; }
+        @keyframes sweep {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .info { display: flex; flex-direction: column; min-width: 380px; animation: rise 1.2s ease-out both; }
+        @keyframes rise {
+            from { opacity: 0; transform: translateY(14px); }
+            to { opacity: 1; transform: none; }
+        }
+        .weekday { font-size: 32px; color: var(--text-secondary); margin-bottom: 12px; }
+        .date { font-size: 58px; font-weight: 300; letter-spacing: -1px; line-height: 1; }
+        .divider { height: 1px; width: 300px; background: var(--line); margin: 38px 0 34px; }
+
+        .weather { display: flex; align-items: center; }
+        .weather[hidden] { display: none; }
+        .weather svg { width: 56px; height: 56px; margin-right: 20px; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+        .temp { font-size: 64px; font-weight: 300; line-height: 1; font-variant-numeric: tabular-nums; margin-right: 20px; }
+        .weather-text { display: flex; flex-direction: column; }
+        .condition { font-size: 24px; margin-bottom: 4px; }
+        .city { font-size: 21px; color: var(--text-secondary); }
+
+        .hint {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 56px;
+            text-align: center;
+            font-size: 20px;
+            color: var(--text-hint);
+        }
+    </style>
+</head>
+<body>
+    <div class="stage" id="stage">
+        <div class="clock-wrap">
+            <svg class="clock" viewBox="0 0 600 600" aria-hidden="true">
+                <circle cx="300" cy="300" r="260" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="3"></circle>
+                <g id="ticks" stroke="rgba(245,245,247,0.55)" stroke-width="4" stroke-linecap="round"></g>
+            </svg>
+            <div class="sweep" id="sweep">
+                <svg class="clock" viewBox="0 0 600 600" aria-hidden="true">
+                    <g id="sweepArc" fill="none" stroke="#0a84ff" stroke-width="4" stroke-linecap="round"></g>
+                    <circle id="sweepHead" r="7" fill="#0a84ff"></circle>
+                </svg>
+            </div>
+            <svg class="clock" viewBox="0 0 600 600" aria-hidden="true">
+                <line id="hourHand" x1="300" y1="300" x2="300" y2="150" stroke="#f5f5f7" stroke-width="14" stroke-linecap="round"></line>
+                <line id="minuteHand" x1="300" y1="300" x2="300" y2="75" stroke="#f5f5f7" stroke-width="7" stroke-linecap="round"></line>
+                <circle cx="300" cy="300" r="13" fill="#0a84ff"></circle>
+                <circle cx="300" cy="300" r="5" fill="#05070c"></circle>
+            </svg>
+        </div>
+
+        <div class="info">
+            <div class="weekday" id="weekday"></div>
+            <div class="date" id="date"></div>
+            <div class="divider"></div>
+            <div class="weather" id="weather" hidden>
+                <svg id="weatherIcon" viewBox="0 0 24 24" aria-hidden="true"></svg>
+                <div class="temp" id="temp"></div>
+                <div class="weather-text">
+                    <div class="condition" id="condition"></div>
+                    <div class="city" id="city"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="hint">Pressione qualquer botão para voltar</div>
+
+    <script>
+        // Same city the Home uses (FMTV_FORCED in app/defaults.js). Fixed here because this page
+        // runs as its own app id, so it can't read the Home's localStorage.
+        var CITY = { name: 'São Paulo', lat: -23.5505, lon: -46.6333 };   // troque pela sua cidade
+        var WEATHER_REFRESH_MS = 20 * 60 * 1000;
+        var WEATHER_MAX_AGE_MS = 3 * 60 * 60 * 1000;
+        var DRIFT_MS = 90 * 1000;
+
+        var WEEKDAYS = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
+        var MONTHS = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto',
+            'setembro', 'outubro', 'novembro', 'dezembro'];
+
+        var CX = 300, CY = 300, ARC_R = 260;
+
+        function point(r, deg) {
+            var rad = deg * Math.PI / 180;
+            return [CX + r * Math.sin(rad), CY - r * Math.cos(rad)];
+        }
+
+        function drawTicks() {
+            var g = document.getElementById('ticks');
+            var svgNs = 'http://www.w3.org/2000/svg';
+            for (var i = 0; i < 12; i++) {
+                var a = point(228, i * 30), b = point(242, i * 30);
+                var line = document.createElementNS(svgNs, 'line');
+                line.setAttribute('x1', a[0].toFixed(1));
+                line.setAttribute('y1', a[1].toFixed(1));
+                line.setAttribute('x2', b[0].toFixed(1));
+                line.setAttribute('y2', b[1].toFixed(1));
+                g.appendChild(line);
+            }
+        }
+
+        // The sweep: a 120 degree arc behind a dot at 12 o'clock, fading out along its tail
+        // in 10 segments. The layer it sits on rotates (CSS), so this is drawn once.
+        function drawSweep() {
+            var g = document.getElementById('sweepArc');
+            var svgNs = 'http://www.w3.org/2000/svg';
+            for (var i = 0; i < 10; i++) {
+                var from = point(ARC_R, -(i + 1) * 12), to = point(ARC_R, -i * 12);
+                var seg = document.createElementNS(svgNs, 'path');
+                seg.setAttribute('d', 'M' + from[0].toFixed(1) + ' ' + from[1].toFixed(1) +
+                    ' A' + ARC_R + ' ' + ARC_R + ' 0 0 1 ' + to[0].toFixed(1) + ' ' + to[1].toFixed(1));
+                seg.setAttribute('stroke-opacity', (1 - i * 0.1).toFixed(2));
+                g.appendChild(seg);
+            }
+            var head = document.getElementById('sweepHead');
+            head.setAttribute('cx', CX);
+            head.setAttribute('cy', CY - ARC_R);
+        }
+
+        // Restarts the sweep so its head sits on the current second.
+        function syncSweep() {
+            var now = new Date();
+            var el = document.getElementById('sweep');
+            el.style.animation = 'none';
+            void el.offsetWidth;
+            el.style.animation = '';
+            el.style.animationDelay = -(now.getSeconds() + now.getMilliseconds() / 1000) + 's';
+        }
+
+        // --- Clock: hands and the date ---
+        var tickTimer = null;
+        function tick() {
+            var now = new Date();
+            var h = now.getHours(), m = now.getMinutes(), s = now.getSeconds();
+
+            var minuteDeg = m * 6 + s * 0.1;
+            var hourDeg = (h % 12) * 30 + m * 0.5;
+            document.getElementById('minuteHand').setAttribute('transform', 'rotate(' + minuteDeg + ' 300 300)');
+            document.getElementById('hourHand').setAttribute('transform', 'rotate(' + hourDeg + ' 300 300)');
+
+            document.getElementById('weekday').textContent = WEEKDAYS[now.getDay()];
+            document.getElementById('date').textContent = now.getDate() + ' de ' + MONTHS[now.getMonth()];
+
+            clearTimeout(tickTimer);
+            tickTimer = setTimeout(tick, 1000 - now.getMilliseconds());
+        }
+
+        // --- Weather (Open-Meteo, no key), cached so it shows at once on the next start ---
+        var ICONS = {
+            sun: '<circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/>',
+            moon: '<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>',
+            partly: '<path d="M8 2.5V4M3 8H1.5M4.5 4.5l1 1M11.5 4.5l-1 1"/><path d="M10.8 8.2A3.4 3.4 0 0 0 4.8 10.4"/><path d="M9 20h8a3.5 3.5 0 0 0 .4-6.98A5 5 0 0 0 8 13.6 3.2 3.2 0 0 0 9 20z"/>',
+            cloud: '<path d="M7 19h10a4 4 0 0 0 .5-7.97A6 6 0 0 0 6.1 12.1 3.5 3.5 0 0 0 7 19z"/>',
+            fog: '<path d="M4 8h16M3 12h18M5 16h14M8 20h8"/>',
+            rain: '<path d="M7 14h10a3.6 3.6 0 0 0 .4-7.2A5.4 5.4 0 0 0 6.9 7.7 3.2 3.2 0 0 0 7 14z"/><path d="M9 17l-1 3.5M13 17l-1 3.5M17 17l-1 3.5"/>',
+            storm: '<path d="M7 14h10a3.6 3.6 0 0 0 .4-7.2A5.4 5.4 0 0 0 6.9 7.7 3.2 3.2 0 0 0 7 14z"/><path d="M13 15l-2.5 3.5h3l-2 3.5"/>',
+            snow: '<path d="M7 14h10a3.6 3.6 0 0 0 .4-7.2A5.4 5.4 0 0 0 6.9 7.7 3.2 3.2 0 0 0 7 14z"/><path d="M8.5 18v.01M12 19.5v.01M15.5 18v.01M10 22v.01M14 22v.01" stroke-width="2.4"/>'
+        };
+
+        function describeWeather(code, isDay) {
+            if (code === 0) return isDay ? ['sun', 'Céu limpo'] : ['moon', 'Céu limpo'];
+            if (code === 1) return [isDay ? 'partly' : 'moon', 'Predomínio de sol'];
+            if (code === 2) return ['partly', 'Parcialmente nublado'];
+            if (code === 3) return ['cloud', 'Nublado'];
+            if (code === 45 || code === 48) return ['fog', 'Nevoeiro'];
+            if (code >= 51 && code <= 57) return ['rain', 'Garoa'];
+            if (code === 61) return ['rain', 'Chuva fraca'];
+            if (code === 65) return ['rain', 'Chuva forte'];
+            if (code >= 61 && code <= 67) return ['rain', 'Chuva'];
+            if (code >= 80 && code <= 82) return ['rain', 'Pancadas de chuva'];
+            if ((code >= 71 && code <= 77) || code === 85 || code === 86) return ['snow', 'Neve'];
+            if (code >= 95) return ['storm', 'Trovoada'];
+            return ['cloud', 'Tempo estável'];
+        }
+
+        function showWeather(w) {
+            var d = describeWeather(w.code, w.isDay);
+            var icon = document.getElementById('weatherIcon');
+            icon.innerHTML = ICONS[d[0]];
+            icon.style.stroke = d[0] === 'sun' || d[0] === 'partly' ? '#ffd60a' : (d[0] === 'moon' ? '#c9d4ff' : 'rgba(245,245,247,0.85)');
+            document.getElementById('temp').textContent = w.temp + '°';
+            document.getElementById('condition').textContent = d[1];
+            document.getElementById('city').textContent = CITY.name;
+            document.getElementById('weather').hidden = false;
+        }
+
+        function cachedWeather() {
+            try {
+                var w = JSON.parse(localStorage.getItem('ss_weather') || 'null');
+                return w && Date.now() - w.at < WEATHER_MAX_AGE_MS ? w : null;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function fetchWeather() {
+            var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + CITY.lat + '&longitude=' + CITY.lon +
+                '&current=temperature_2m,weather_code,is_day&timezone=auto';
+            fetch(url)
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                    if (!data.current) return;
+                    var w = {
+                        temp: Math.round(data.current.temperature_2m),
+                        code: data.current.weather_code,
+                        isDay: data.current.is_day === 1,
+                        at: Date.now()
+                    };
+                    showWeather(w);
+                    try { localStorage.setItem('ss_weather', JSON.stringify(w)); } catch (e) {}
+                })
+                .catch(function() {
+                    // Offline: keep the cached reading while it is recent, else hide the block
+                    if (!cachedWeather()) document.getElementById('weather').hidden = true;
+                });
+        }
+
+        function drift() {
+            var x = Math.round((Math.random() * 2 - 1) * 70);
+            var y = Math.round((Math.random() * 2 - 1) * 45);
+            document.getElementById('stage').style.transform = 'translate(' + x + 'px, ' + y + 'px)';
+        }
+
+        // tvpowerd may start this page preloaded and then relaunch it: bring the window up
+        // and refresh what may be stale (same handling as the Home's webOSRelaunch).
+        function onShown() {
+            tick();
+            syncSweep();
+            var w = cachedWeather();
+            if (w) showWeather(w);
+            fetchWeather();
+            if (window.webOSSystem && window.webOSSystem.activate) window.webOSSystem.activate();
+            else if (window.PalmSystem && window.PalmSystem.activate) window.PalmSystem.activate();
+        }
+
+        // webOS 10: tvpowerd closes the screensaver on any key (LG's video-ads screensaver relies
+        // on that too). webOS 4.x: the idle script launches this page as a normal app, so a key
+        // that reaches it closes it, back to whatever was on screen.
+        var closeTimer = null;
+        function onKey() {
+            clearTimeout(closeTimer);
+            closeTimer = setTimeout(function() { window.close(); }, 300);
+        }
+
+        drawTicks();
+        drawSweep();
+        onShown();
+        setInterval(fetchWeather, WEATHER_REFRESH_MS);
+        setInterval(drift, DRIFT_MS);
+        document.addEventListener('webOSRelaunch', onShown);
+        document.addEventListener('keydown', onKey);
+    </script>
+</body>
+</html>

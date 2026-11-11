@@ -1,0 +1,13 @@
+{
+  "name": "homebridge-casa",
+  "displayName": "Casa",
+  "version": "0.1.0",
+  "description": "Ponte entre o sistema da casa (PHP) e o Apple Home / Siri",
+  "main": "index.js",
+  "license": "MIT",
+  "keywords": ["homebridge-plugin"],
+  "engines": {
+    "homebridge": ">=1.8.0",
+    "node": ">=20"
+  }
+}

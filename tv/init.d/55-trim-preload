@@ -1,0 +1,19 @@
+#!/bin/sh
+# Keeps apps the user doesn't want warm out of LG's preload list (webos-preload-manager
+# opens them in the background at boot). LG may rewrite the file, so this runs each boot.
+# Original saved as webos-preload-manager-conf.json.orig.
+F=/var/preferences/webos-preload-manager-conf.json
+NO_PRELOAD="com.webos.app.lgchannels amazon com.webos.app.livetv com.webos.app.livemenu com.webos.app.hdmi1 com.webos.app.browser com.webos.app.voice"
+[ -f "$F" ] || exit 0
+[ -f "$F.orig" ] || cp "$F" "$F.orig"
+NO_PRELOAD="$NO_PRELOAD" python3 - "$F" <<'EOF'
+import json, os, sys
+path = sys.argv[1]
+conf = json.load(open(path))
+allowed = conf.get('allowedApps', {})
+drop = [a for a in os.environ['NO_PRELOAD'].split() if a in allowed]
+if drop:
+    for a in drop:
+        del allowed[a]
+    open(path, 'w').write(json.dumps(conf, separators=(',', ':')))
+EOF

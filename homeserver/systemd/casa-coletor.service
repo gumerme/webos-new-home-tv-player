@@ -1,0 +1,10 @@
+[Unit]
+Description=Coletor de informacoes do host para o painel da casa
+After=docker.service network-online.target
+
+[Service]
+Type=oneshot
+Nice=10
+IOSchedulingClass=idle
+ExecStart=/usr/bin/python3 /srv/casa/scripts/coletor-host.py
+TimeoutStartSec=600

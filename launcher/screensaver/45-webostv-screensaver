@@ -1,0 +1,14 @@
+#!/bin/sh
+# Puts the WebOS TV screensaver (clock + weather page in /var/lib/webosbrew/webostv-screensaver)
+# in the slot of LG's own com.webos.app.screensaver, RAM-only: a bind mount over LG's folder,
+# nothing on persistent storage is modified. tvpowerd keeps deciding when the screensaver
+# starts and stops; it just launches this page instead of LG's particle screen.
+# Runs before 50-freemytv-as-home, whose `systemctl restart sam` makes the app manager read it.
+#
+# Undo: remove this file from init.d and reboot.
+
+SRC=/var/lib/webosbrew/webostv-screensaver
+DST=/usr/palm/applications/com.webos.app.screensaver
+
+[ -f "$SRC/index.html" ] || exit 0
+grep -q " $DST " /proc/mounts || mount --bind "$SRC" "$DST"

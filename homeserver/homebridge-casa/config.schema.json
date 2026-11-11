@@ -1,0 +1,15 @@
+{
+  "pluginAlias": "Casa",
+  "pluginType": "platform",
+  "singular": true,
+  "schema": {
+    "type": "object",
+    "properties": {
+      "name": { "title": "Nome", "type": "string", "default": "Casa" },
+      "url": { "title": "URL do sistema da casa", "type": "string", "default": "http://127.0.0.1:8080" },
+      "token": { "title": "Token (CASA_TOKEN)", "type": "string" },
+      "intervalo": { "title": "Atualizar a cada (s)", "type": "integer", "default": 5, "minimum": 2 }
+    },
+    "required": ["url", "token"]
+  }
+}

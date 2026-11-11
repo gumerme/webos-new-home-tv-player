@@ -1,0 +1,3231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebOS TV</title>
+    <script src="webOSTV.js"></script>
+    <script src="defaults.js"></script>
+    <script>
+        // Seed missing settings from defaults.js (if present) before the app reads them, then
+        // apply its one-time forced values (FMTV_FORCED) once per FMTV_FORCED_REV, and add
+        // each FMTV_ADD_FAVORITES app to the shelf once (right after `after`), keeping the
+        // order the viewer set.
+        (function() {
+            var d = window.FMTV_DEFAULTS;
+            var forced = window.FMTV_FORCED;
+            var adds = window.FMTV_ADD_FAVORITES || [];
+            try {
+                for (var k in d) {
+                    if (Object.prototype.hasOwnProperty.call(d, k) && localStorage.getItem(k) === null) {
+                        localStorage.setItem(k, d[k]);
+                    }
+                }
+                if (forced && localStorage.getItem('fmtv_forced_rev') !== window.FMTV_FORCED_REV) {
+                    for (var f in forced) {
+                        if (Object.prototype.hasOwnProperty.call(forced, f)) localStorage.setItem(f, forced[f]);
+                    }
+                    localStorage.setItem('fmtv_forced_rev', window.FMTV_FORCED_REV);
+                }
+                adds.forEach(function(a) {
+                    var key = 'fmtv_fav_added_' + a.id;
+                    if (localStorage.getItem(key)) return;
+                    var favs = JSON.parse(localStorage.getItem('fmtv_favorites') || 'null');
+                    if (favs && favs.indexOf(a.id) === -1) {
+                        var at = favs.indexOf(a.after);
+                        favs.splice(at === -1 ? favs.length : at + 1, 0, a.id);
+                        localStorage.setItem('fmtv_favorites', JSON.stringify(favs));
+                    }
+                    localStorage.setItem(key, '1');
+                });
+            } catch (e) {}
+        })();
+
+        // Flex `gap` arrived in Chromium 84; webOS 4.x and older ship earlier engines, where
+        // the no-flex-gap class swaps it for margins (see the fallback block in the CSS).
+        (function() {
+            var probe = document.createElement('div');
+            probe.style.display = 'flex';
+            probe.style.flexDirection = 'column';
+            probe.style.rowGap = '1px';
+            probe.appendChild(document.createElement('div'));
+            probe.appendChild(document.createElement('div'));
+            document.documentElement.appendChild(probe);
+            var hasFlexGap = probe.scrollHeight === 1;
+            document.documentElement.removeChild(probe);
+            if (!hasFlexGap) document.documentElement.className += ' no-flex-gap';
+        })();
+    </script>
+    <style>
+        /* Home "Ambiente" (2.0): hour-of-day wallpaper (gradients, no image, no blur), big clock,
+           a round app dock and, below it, ONE content row at a time from the homeserver.
+           Must run on Chromium 53 (webOS 4.x, TV 2): no flex/grid gap (margins instead), no
+           inset, no aspect-ratio, no place-items; only transform and opacity animate. */
+        @font-face { font-family: "Outfit"; font-style: normal; font-weight: 200; src: url("assets/fonts/outfit-latin-200-normal.woff2") format("woff2"); }
+        @font-face { font-family: "Outfit"; font-style: normal; font-weight: 300; src: url("assets/fonts/outfit-latin-300-normal.woff2") format("woff2"); }
+        @font-face { font-family: "Outfit"; font-style: normal; font-weight: 400; src: url("assets/fonts/outfit-latin-400-normal.woff2") format("woff2"); }
+        @font-face { font-family: "Outfit"; font-style: normal; font-weight: 500; src: url("assets/fonts/outfit-latin-500-normal.woff2") format("woff2"); }
+
+        :root {
+            /* 09/11: azul de antes (o mesmo do Player até a 2.0.5); o nome --amber ficou só por ser usado em todo o CSS */
+            --bg: #0a0e1a;
+            --panel: #121a2e;
+            --panel-2: #1c2438;
+            --amber: #0a84ff;
+            --amber-soft: rgba(10, 132, 255, 0.18);
+            --live: #e5534b;
+            --text-primary: #f5f5f7;
+            --text-secondary: rgba(245, 245, 247, 0.66);
+            --accent: #0a84ff;
+            --glass-border: rgba(255, 255, 255, 0.14);
+            --glass-focus-border: rgba(255, 255, 255, 0.95);
+            --f-ui: "Outfit", "Museo Sans", "LG Display", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        html, body {
+            background: var(--bg);
+        }
+
+        body {
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+            font-family: var(--f-ui);
+            color: var(--text-primary);
+            -webkit-font-smoothing: antialiased;
+        }
+
+        button, input, select { font-family: var(--f-ui); }
+
+        .oculto { display: none !important; }
+
+        /* ---------- the TV screen: a fixed 1920x1080 canvas (both TVs report a 1920 viewport) ---------- */
+        #tv {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 1920px;
+            height: 1080px;
+            overflow: hidden;
+            color: #fff;
+        }
+
+        #tv .papel, #tv .sombra, #tv .escuro {
+            position: absolute;
+            top: 0; right: 0; bottom: 0; left: 0;
+        }
+
+        /* Wallpaper: one gradient per part of the day, swapped by class (no crossfade). */
+        #tv .papel { background: #0a0e1a; }
+        #tv .papel.manha { background: radial-gradient(900px 600px at 78% 22%, rgba(255, 220, 170, 0.55), rgba(255, 220, 170, 0) 70%), linear-gradient(165deg, #3b4a57 0%, #73828b 46%, #c7a982 100%); }
+        #tv .papel.tarde { background: radial-gradient(1000px 640px at 70% 12%, rgba(255, 236, 200, 0.45), rgba(255, 236, 200, 0) 70%), linear-gradient(170deg, #2c3a44 0%, #5d6f78 50%, #b79a72 100%); }
+        #tv .papel.fim { background: radial-gradient(900px 520px at 74% 68%, rgba(255, 170, 90, 0.6), rgba(255, 170, 90, 0) 70%), linear-gradient(175deg, #241c2a 0%, #5a3a3e 48%, #c97f45 100%); }
+        #tv .papel.noite { background: radial-gradient(900px 560px at 78% 18%, rgba(70, 120, 255, 0.22), rgba(70, 120, 255, 0) 70%), linear-gradient(175deg, #05070d 0%, #0a0e1a 50%, #171d33 100%); }
+        #tv .sombra { background: linear-gradient(90deg, rgba(4, 6, 12, 0.55) 0%, rgba(4, 6, 12, 0.15) 55%, rgba(4, 6, 12, 0) 100%), linear-gradient(0deg, rgba(4, 6, 12, 0.72) 0%, rgba(4, 6, 12, 0) 55%); }
+        #tv .escuro { background: rgba(6, 9, 20, 0.62); opacity: 0; transition: opacity 0.4s ease; }
+        #tv.conteudo .escuro { opacity: 1; }
+
+        /* Clock, date line and the next reminder */
+        #tv .relogio {
+            position: absolute;
+            left: 132px;
+            top: 168px;
+            transform-origin: 0 0;
+            transition: transform 0.45s cubic-bezier(0.2, 0.7, 0.2, 1);
+        }
+        #tv.conteudo .relogio { transform: translate(-36px, -104px) scale(0.36); }
+        #tv .hora {
+            font-weight: 200;
+            font-size: 236px;
+            line-height: 0.9;
+            letter-spacing: -0.04em;
+            white-space: nowrap;
+            font-variant-numeric: tabular-nums;
+        }
+        #tv .linha {
+            margin-top: 26px;
+            display: flex;
+            align-items: center;
+            font-weight: 300;
+            font-size: 34px;
+            color: rgba(255, 255, 255, 0.88);
+            white-space: nowrap;
+            transition: opacity 0.3s ease;
+        }
+        #tv .linha > * + * { margin-left: 22px; }
+        #tv .linha svg { width: 38px; height: 38px; flex: none; }
+        #tv .aviso {
+            margin-top: 18px;
+            display: inline-flex;
+            align-items: center;
+            font-weight: 400;
+            font-size: 28px;
+            color: #fff;
+            padding: 10px 22px 10px 16px;
+            border-radius: 30px;
+            background: rgba(10, 132, 255, 0.2);
+            border: 1px solid rgba(10, 132, 255, 0.55);
+            white-space: nowrap;
+            transition: opacity 0.3s ease;
+        }
+        #tv .aviso svg { width: 28px; height: 28px; color: var(--amber); margin-right: 14px; flex: none; }
+        #tv.conteudo .linha, #tv.conteudo .aviso { opacity: 0; }
+        /* Apps being installed/updated (any app, in the dock or not): spinner + name + percent. */
+        #tv .instalando {
+            margin-top: 18px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            transition: opacity 0.3s ease;
+        }
+        #tv .instalando .it {
+            display: inline-flex;
+            align-items: center;
+            font-weight: 400;
+            font-size: 28px;
+            color: #fff;
+            padding: 10px 22px 10px 14px;
+            border-radius: 30px;
+            background: rgba(10, 132, 255, 0.2);
+            border: 1px solid rgba(10, 132, 255, 0.55);
+            white-space: nowrap;
+            margin-bottom: 10px;
+        }
+        #tv .instalando .gira {
+            width: 26px; height: 26px; margin-right: 14px; flex: none;
+            border-radius: 50%; border: 4px solid rgba(255, 255, 255, 0.25); border-top-color: var(--amber);
+            -webkit-animation: girar 0.9s linear infinite; animation: girar 0.9s linear infinite;
+        }
+        #tv .instalando .pb { width: 120px; height: 6px; margin-left: 18px; border-radius: 3px; background: rgba(255, 255, 255, 0.22); overflow: hidden; }
+        #tv .instalando .pb i { display: block; height: 100%; background: var(--amber); }
+        #tv.conteudo .instalando { opacity: 0; }
+        @-webkit-keyframes girar { to { -webkit-transform: rotate(360deg); } }
+        #tv .canto {
+            position: absolute;
+            right: 96px;
+            top: 64px;
+            display: flex;
+            align-items: center;
+            font-weight: 300;
+            font-size: 28px;
+            color: rgba(255, 255, 255, 0.85);
+            white-space: nowrap;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        #tv .canto svg { width: 30px; height: 30px; margin-right: 16px; flex: none; }
+        #tv.conteudo .canto { opacity: 1; }
+
+        /* Weather, big, on the right (resting only; the small corner summary takes over below). */
+        #tv .clima {
+            position: absolute;
+            right: 132px;
+            top: 150px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            text-align: right;
+            white-space: nowrap;
+            transition: opacity 0.3s ease;
+        }
+        #tv.conteudo .clima { opacity: 0; }
+        #tv .clima .agora { display: flex; align-items: center; }
+        #tv .clima .agora svg { width: 168px; height: 168px; margin-right: 30px; flex: none; }
+        #tv .clima .temp { font-weight: 200; font-size: 150px; line-height: 0.9; letter-spacing: -0.04em; }
+        #tv .clima .ceu { margin-top: 18px; font-weight: 300; font-size: 34px; color: rgba(255, 255, 255, 0.9); }
+        #tv .clima .cid { margin-top: 4px; font-weight: 300; font-size: 26px; color: rgba(255, 255, 255, 0.6); }
+
+        /* Text size setting: the date/weather line, the reminder and the corner weather. */
+        :root.ts-large #tv .linha, :root.ts-large #tv .aviso, :root.ts-large #tv .canto { zoom: 1.2; }
+        :root.ts-xlarge #tv .linha, :root.ts-xlarge #tv .aviso, :root.ts-xlarge #tv .canto { zoom: 1.4; }
+
+        /* App dock: round icons, name only on the focused one */
+        #tv .doca {
+            position: absolute;
+            left: 132px;
+            right: 0;
+            top: 640px;
+            height: 200px;
+            transform-origin: 0 0;
+            transition: transform 0.45s cubic-bezier(0.2, 0.7, 0.2, 1), opacity 0.3s ease;
+        }
+        #tv.conteudo .doca { transform: translateY(-410px) scale(0.72); opacity: 0.55; }
+        #tv .doca-trilho {
+            position: relative;
+            display: flex;
+            align-items: flex-start;
+            transition: transform 0.3s cubic-bezier(0.2, 0.7, 0.2, 1);
+        }
+        #tv .doca-app {
+            position: relative;
+            flex: none;
+            width: 132px;
+            height: 132px;
+            margin-right: 34px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: transform 0.16s ease;
+        }
+        #tv .doca-ico {
+            position: absolute;
+            top: 0; right: 0; bottom: 0; left: 0;
+            border-radius: 50%;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #1c2438;
+            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+        }
+        #tv .doca-ico img { position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: cover; }
+        #tv .doca-ico img.tile-brand-logo { left: 24%; top: 24%; width: 52%; height: 52%; object-fit: contain; }
+        #tv .doca-ico svg { width: 52px; height: 52px; }
+        #tv .doca-ico .app-art-fallback { font-size: 20px; font-weight: 500; padding: 14px; }
+        #tv .doca-app.vidro .doca-ico { background: rgba(255, 255, 255, 0.14); border: 1px solid rgba(255, 255, 255, 0.28); box-shadow: none; }
+        #tv .doca-app .nome {
+            position: absolute;
+            top: 152px;
+            left: 50%;
+            transform: translateX(-50%);
+            white-space: nowrap;
+            font-weight: 400;
+            font-size: 24px;
+            color: #fff;
+            opacity: 0;
+        }
+        #tv .doca-app .on {
+            position: absolute;
+            bottom: -16px;
+            left: 50%;
+            width: 8px;
+            height: 8px;
+            margin-left: -4px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.85);
+        }
+        #tv .doca-app .anel {
+            position: absolute;
+            top: -6px; right: -6px; bottom: -6px; left: -6px;
+            border-radius: 50%;
+            border: 4px solid rgba(255, 255, 255, 0.25);
+            border-top-color: var(--amber);
+            animation: girar 1.2s linear infinite;
+        }
+        @keyframes girar { to { transform: rotate(360deg); } }
+        #tv .doca-app.foco { transform: scale(1.14); }
+        #tv .doca-app.foco .doca-ico { box-shadow: 0 0 0 5px #fff, 0 16px 34px rgba(0, 0, 0, 0.45); }
+        #tv .doca-app.foco .nome { opacity: 1; }
+        #tv .doca-app.movendo { transform: translateY(-14px) scale(1.14); }
+        #tv .doca-app.movendo .doca-ico { box-shadow: 0 0 0 5px var(--amber), 0 16px 34px rgba(0, 0, 0, 0.45); }
+        #tv .doca-app[aria-busy="true"] .doca-ico { box-shadow: 0 0 0 5px var(--amber); }
+
+        /* "Go down for ..." hint (and the reorder instructions) */
+        #tv .descer {
+            position: absolute;
+            left: 132px;
+            bottom: 70px;
+            display: flex;
+            align-items: center;
+            font-weight: 300;
+            font-size: 26px;
+            color: rgba(255, 255, 255, 0.78);
+            white-space: nowrap;
+            transition: opacity 0.3s ease;
+        }
+        #tv .descer b { font-weight: 500; color: #fff; }
+        #tv .descer i {
+            flex: none;
+            width: 44px;
+            height: 44px;
+            margin-right: 16px;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #tv .descer i svg { width: 18px; height: 18px; }
+        #tv.conteudo .descer { opacity: 0; }
+
+        /* Content: one row at a time */
+        #tv .prat {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 400px;
+            opacity: 0;
+            transform: translateY(60px);
+            transition: opacity 0.35s ease, transform 0.45s cubic-bezier(0.2, 0.7, 0.2, 1);
+        }
+        #tv.conteudo .prat { opacity: 1; transform: none; }
+        #tv .secoes {
+            margin-left: 132px;
+            display: flex;
+            font-weight: 400;
+            font-size: 26px;
+            color: rgba(255, 255, 255, 0.5);
+            white-space: nowrap;
+        }
+        #tv .secoes span { margin-right: 30px; cursor: pointer; }
+        #tv .secoes span.on { color: #fff; font-weight: 500; }
+        #tv .secoes span.on:after { content: ""; display: block; height: 3px; margin-top: 8px; border-radius: 2px; background: var(--amber); }
+        #tv .info { margin: 30px 0 0 132px; height: 236px; }
+        #tv .info .s {
+            margin-top: 14px;
+            max-width: 1180px;
+            font-weight: 300;
+            font-size: 24px;
+            line-height: 1.4;
+            color: rgba(255, 255, 255, 0.78);
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        #tv .info .t {
+            font-weight: 500;
+            font-size: 56px;
+            line-height: 1.05;
+            letter-spacing: -0.02em;
+            max-width: 1300px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        #tv .info .m {
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+            font-weight: 300;
+            font-size: 26px;
+            color: rgba(255, 255, 255, 0.82);
+            white-space: nowrap;
+        }
+        #tv .info .m > * + * { margin-left: 18px; }
+        #tv .amb { color: var(--amber); font-weight: 500; }
+        #tv .vivo { color: #fff; background: var(--live); padding: 0 12px; border-radius: 6px; font-weight: 500; font-size: 20px; letter-spacing: 0.06em; }
+        #tv .info .pb { margin-top: 12px; width: 480px; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.22); overflow: hidden; }
+        #tv .pb b { display: block; height: 100%; background: var(--amber); }
+        #tv .faixa {
+            margin-top: 10px;
+            padding-left: 132px;
+            display: flex;
+            transition: transform 0.3s cubic-bezier(0.2, 0.7, 0.2, 1);
+        }
+        #tv .card {
+            position: relative;
+            flex: none;
+            width: 400px;
+            height: 225px;
+            margin-right: 30px;
+            border-radius: 22px;
+            background-color: #1c2438;
+            background-size: cover;
+            background-position: center;
+            cursor: pointer;
+            transition: transform 0.16s ease;
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.4);
+        }
+        #tv .card .tvs { position: absolute; left: 14px; top: 14px; max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; font-size: 18px; padding: 4px 12px; border-radius: 14px; background: rgba(6, 9, 20, 0.72); }
+        #tv .card .novo { position: absolute; right: 14px; top: 14px; font-weight: 500; font-size: 16px; letter-spacing: 0.06em; padding: 4px 12px; border-radius: 14px; background: var(--amber); color: #fff; }
+        #tv .card .pb { position: absolute; left: 18px; right: 18px; bottom: 16px; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, 0.28); overflow: hidden; }
+        #tv .card .pos { position: absolute; left: 18px; bottom: 6px; font-weight: 500; font-size: 92px; line-height: 1; color: #fff; text-shadow: 0 4px 18px rgba(0, 0, 0, 0.6); }
+        #tv .card .img { position: absolute; top: 0; right: 0; bottom: 0; left: 0; border-radius: inherit; background-size: cover; background-position: center; }
+        #tv .card .nm { position: absolute; left: 24px; right: 24px; top: 0; bottom: 0; display: flex; align-items: center; justify-content: center; text-align: center; font-weight: 400; font-size: 28px; color: rgba(255, 255, 255, 0.85); }
+        #tv .card.jogo {
+            background: rgba(18, 26, 46, 0.82);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            padding: 24px 30px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        #tv .card.jogo .tm { display: flex; align-items: center; font-weight: 500; font-size: 30px; white-space: nowrap; overflow: hidden; }
+        #tv .card.jogo .tm + .tm { margin-top: 14px; }
+        #tv .card.jogo .tm span { overflow: hidden; text-overflow: ellipsis; }
+        #tv .card.jogo .tm i {
+            flex: none;
+            width: 46px;
+            height: 46px;
+            margin-right: 16px;
+            border-radius: 50%;
+            overflow: hidden;
+            font-style: normal;
+            font-weight: 500;
+            font-size: 15px;
+            line-height: 46px;
+            text-align: center;
+            letter-spacing: 0.02em;
+        }
+        #tv .card.jogo .tm i img { width: 100%; height: 100%; object-fit: contain; background: rgba(255, 255, 255, 0.9); }
+        #tv .card.jogo .st { margin-top: 16px; display: flex; align-items: center; font-weight: 300; font-size: 22px; color: rgba(255, 255, 255, 0.75); white-space: nowrap; }
+        #tv .card.jogo .st > * + * { margin-left: 12px; }
+        /* Continue: the last Live channel (logo centered on a dark card, LIVE badge) */
+        #tv .card.canal { background: #15120f; border: 1px solid rgba(255, 255, 255, 0.14); overflow: hidden; }
+        #tv .card.canal .lg { position: absolute; left: 25%; top: 21%; width: 50%; height: 58%; object-fit: contain; }
+        #tv .card.canal.temlogo .nm { display: none; }
+        #tv .card .aov { position: absolute; left: 14px; top: 14px; font-weight: 500; font-size: 16px; letter-spacing: 0.06em; padding: 4px 12px; border-radius: 14px; background: var(--live); color: #fff; }
+        #tv .card.mais { background: rgba(255, 255, 255, 0.1); border: 1px dashed rgba(255, 255, 255, 0.35); display: flex; align-items: center; justify-content: center; font-weight: 400; font-size: 28px; color: rgba(255, 255, 255, 0.85); box-shadow: none; }
+        #tv .card.foco { transform: scale(1.06); box-shadow: 0 0 0 5px #fff, 0 18px 38px rgba(0, 0, 0, 0.5); }
+
+        #tv .pontos {
+            position: absolute;
+            left: 132px;
+            bottom: 58px;
+            display: flex;
+            align-items: center;
+            font-weight: 300;
+            font-size: 22px;
+            color: rgba(255, 255, 255, 0.6);
+            white-space: nowrap;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        #tv.conteudo .pontos { opacity: 1; }
+        #tv .pontos b { width: 10px; height: 10px; margin-right: 12px; border-radius: 5px; background: rgba(255, 255, 255, 0.35); }
+        #tv .pontos b.on { width: 28px; background: var(--amber); }
+        #tv .pontos svg { width: 16px; height: 16px; margin-right: 6px; }
+        #tv .pontos span { margin-left: 4px; }
+        #tv .offline {
+            position: absolute;
+            right: 96px;
+            bottom: 56px;
+            display: none;
+            align-items: center;
+            font-weight: 300;
+            font-size: 22px;
+            color: rgba(255, 255, 255, 0.7);
+            white-space: nowrap;
+        }
+        #tv .offline i { width: 10px; height: 10px; margin-right: 10px; border-radius: 50%; background: var(--amber); }
+        #tv.semserv .offline { display: flex; }
+
+        /* Old engine (webOS 4.x, TV 2): no blurred shadows, nothing animating the background. */
+        .no-flex-gap #tv .escuro { transition: none; }
+        .no-flex-gap #tv .doca-ico, .no-flex-gap #tv .card { box-shadow: none; }
+        .no-flex-gap #tv .doca-app.foco .doca-ico { box-shadow: 0 0 0 5px #fff; }
+        .no-flex-gap #tv .doca-app.movendo .doca-ico, .no-flex-gap #tv .doca-app[aria-busy="true"] .doca-ico { box-shadow: 0 0 0 5px var(--amber); }
+        .no-flex-gap #tv .card.foco { box-shadow: 0 0 0 5px #fff; }
+        .no-flex-gap #tv .card .pos { text-shadow: none; }
+        @media (prefers-reduced-motion: reduce) { #tv *, #tv { transition: none !important; } }
+
+        /* ---------- modals (Customize, All apps, Running apps) and toast ---------- */
+        /* App being downloaded/installed/updated (helper /installing): veil, spinner, progress */
+        .all-app-tile.updating { position: relative; }
+        .update-veil {
+            position: absolute; left: 0; top: 0; right: 0; bottom: 0; border-radius: inherit; z-index: 3;
+            background: rgba(0, 0, 0, 0.6); display: flex; flex-direction: column; align-items: center; justify-content: center;
+            pointer-events: none;
+        }
+        .update-spin { width: 40px; height: 40px; border-radius: 50%; border: 4px solid rgba(255, 255, 255, 0.25); border-top-color: var(--amber); animation: girar 0.9s linear infinite; }
+        .update-text { font-size: 14px; font-weight: 500; color: #fff; margin-top: 8px; }
+        .update-bar { position: absolute; left: 14px; right: 14px; bottom: 12px; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.22); overflow: hidden; }
+        .update-bar div { height: 100%; width: 0; background: var(--amber); }
+
+        .app-icon {
+            width: 100%;
+            flex: 1;
+            min-height: 0;
+            border-radius: 20px 20px 0 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+        .app-icon svg { width: 75%; height: 75%; }
+        .app-icon img {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        .app-icon img.tile-brand-logo { width: 76%; height: 76%; }
+        /* Laid over the icon box, not in its flow: hidden behind a loaded icon it must
+           not widen the tile (a long single word like "Boosteroid" did). */
+        .app-art-fallback {
+            position: absolute;
+            top: 0; right: 0; bottom: 0; left: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 25px;
+            font-weight: 500;
+            color: #fff;
+            text-align: center;
+            padding: 12px;
+            overflow-wrap: break-word;
+            word-wrap: break-word;
+        }
+        .hdmi-options {
+            /* Flexbox fallback for engines without CSS Grid; display: grid
+               below overrides it on any engine that understands grid. */
+            display: flex;
+            flex-wrap: wrap;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            grid-gap: 12px;
+        }
+        .hdmi-options .app-toggle-item { flex: 0 0 calc((100% - 12px) / 2); }
+
+        .modal-backdrop {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(4, 6, 12, 0.9);
+            z-index: 500;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+        }
+        .modal-backdrop.active { display: flex; }
+        .modal-box {
+            width: 960px;
+            max-height: 86vh;
+            background: var(--panel);
+            border: 1px solid rgba(232, 214, 186, 0.16);
+            border-radius: 28px;
+            padding: 32px 38px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.85);
+            overflow-y: auto;
+        }
+        .modal-box > * + * { margin-top: 22px; }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 16px;
+        }
+        .modal-title { font-size: 26px; font-weight: 500; }
+        .modal-hint { font-size: 14px; color: var(--text-secondary); }
+        .modal-section-title {
+            font-size: 14px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--amber);
+            margin-bottom: 10px;
+        }
+        .modal-version { margin-right: auto; align-self: center; font-size: 13px; color: var(--text-secondary); }
+        .app-selector-grid {
+            display: flex;
+            flex-wrap: wrap;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-gap: 12px;
+            max-height: 240px;
+            overflow-y: auto;
+            padding: 4px;
+        }
+        .app-selector-grid .app-toggle-item { flex: 0 0 calc((100% - 12px * 3) / 4); }
+        .all-apps-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            grid-gap: 14px;
+            max-height: 58vh;
+            overflow-y: auto;
+            padding: 12px;
+        }
+        .all-app-tile {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1.5px solid rgba(255, 255, 255, 0.1);
+            border-radius: 18px;
+            height: 160px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            outline: none;
+            padding: 10px 6px;
+            color: var(--text-primary);
+            transition: transform 0.2s ease;
+        }
+        .all-app-tile > * + * { margin-top: 6px; }
+        .all-app-tile:hover, .all-app-tile:focus, .all-app-tile.focused {
+            transform: scale(1.05);
+            border-color: var(--glass-focus-border);
+            background: rgba(255, 255, 255, 0.15);
+        }
+        .all-app-tile .app-icon { width: 96px; height: 96px; border-radius: 50%; flex: none; }
+        .all-app-tile .app-icon img { object-fit: cover; }
+        .all-app-tile .app-icon img.tile-brand-logo { width: 56%; height: 56%; object-fit: contain; }
+        .all-app-tile .app-art-fallback { font-size: 14px; padding: 6px; }
+        .all-app-tile .all-app-title {
+            font-size: 14px;
+            font-weight: 400;
+            text-align: center;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .running-hint { font-size: 15px; color: var(--text-secondary); margin: 0 4px 14px; }
+        .app-toggle-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1.5px solid rgba(255, 255, 255, 0.1);
+            border-radius: 14px;
+            padding: 10px 14px;
+            cursor: pointer;
+            color: var(--text-primary);
+            font-size: 15px;
+            font-weight: 400;
+            transition: transform 0.15s ease;
+        }
+        .app-toggle-item.selected { background: var(--amber-soft); border-color: var(--amber); }
+        .app-toggle-item:hover, .app-toggle-item.focused { transform: scale(1.03); border-color: #fff; background: rgba(255, 255, 255, 0.16); }
+        .settings-row {
+            display: flex;
+            flex-wrap: wrap;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-gap: 16px;
+        }
+        .field-group { flex: 0 0 calc((100% - 16px * 2) / 3); display: flex; flex-direction: column; }
+        .field-group > * + * { margin-top: 6px; }
+        .field-group label { font-size: 14px; color: var(--text-secondary); }
+        .field-input {
+            background: rgba(0, 0, 0, 0.35);
+            border: 1.5px solid rgba(255, 255, 255, 0.16);
+            border-radius: 12px;
+            padding: 10px 14px;
+            color: #fff;
+            font-size: 15px;
+            outline: none;
+        }
+        .field-input:focus, .field-input.focused { border-color: var(--amber); background: rgba(0, 0, 0, 0.55); }
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .modal-actions > * + * { margin-left: 14px; }
+        .btn-primary, .btn-secondary {
+            border: 2px solid transparent;
+            padding: 10px 22px;
+            border-radius: 14px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            outline: none;
+        }
+        .btn-primary { background: var(--amber); color: #fff; }
+        .btn-secondary { background: rgba(255, 255, 255, 0.1); color: #fff; }
+        .btn-primary:hover, .btn-primary.focused, .btn-secondary:hover, .btn-secondary.focused { border-color: #fff; transform: scale(1.05); }
+
+        .toast-msg {
+            position: fixed;
+            top: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            white-space: nowrap;
+            background: rgba(31, 28, 23, 0.96);
+            border: 1px solid rgba(232, 214, 186, 0.22);
+            padding: 12px 22px;
+            border-radius: 14px;
+            font-size: 18px;
+            font-weight: 400;
+            color: #fff;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.6);
+            display: none;
+            z-index: 1000;
+        }
+
+        /* webOS 4.x composes the UI at 1280x720 and upscales it: small modal text gets a bit more. */
+        .no-flex-gap .modal-hint, .no-flex-gap .modal-version, .no-flex-gap .running-hint, .no-flex-gap .field-group label { font-size: 16px; }
+        .no-flex-gap .modal-section-title { font-size: 16px; }
+        .no-flex-gap .app-toggle-item, .no-flex-gap .field-input, .no-flex-gap .all-app-tile .all-app-title { font-size: 17px; }
+        .no-flex-gap .btn-primary, .no-flex-gap .btn-secondary { font-size: 18px; }
+        .no-flex-gap .modal-box, .no-flex-gap .toast-msg { box-shadow: none; }
+
+        /* No CSS grid before Chromium 57: the wrapping grids fall back to flex rows. */
+        @supports not (display: grid) {
+            .hdmi-options, .app-selector-grid, .settings-row { justify-content: space-between; }
+            .hdmi-options > * { margin-bottom: 12px; }
+            .app-selector-grid > * { margin-bottom: 12px; }
+            .settings-row > * { margin-bottom: 16px; }
+            .all-apps-grid { display: flex; flex-wrap: wrap; }
+            .all-app-tile { flex: 0 0 calc((100% - 14px * 4) / 5); margin: 0 14px 14px 0; }
+            .all-app-tile:nth-child(5n) { margin-right: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="toast-msg" id="toastMsg" role="status" aria-live="polite"></div>
+
+    <!-- The Home screen. Everything inside is drawn by the script below. -->
+    <div id="tv">
+        <div class="papel" id="papel"></div>
+        <div class="sombra"></div>
+        <div class="escuro"></div>
+        <div class="relogio">
+            <div class="hora" id="hora"></div>
+            <div class="linha" id="linha"></div>
+            <div class="aviso oculto" id="aviso"></div>
+            <div class="instalando oculto" id="instalando"></div>
+        </div>
+        <div class="canto oculto" id="canto"></div>
+        <div class="clima oculto" id="clima"></div>
+        <div class="doca" id="doca"><div class="doca-trilho" id="docaTrilho"></div></div>
+        <div class="descer oculto" id="descer"></div>
+        <div class="prat" id="prat">
+            <div class="secoes" id="secoes"></div>
+            <div class="info" id="info"></div>
+            <div class="faixa" id="faixa"></div>
+        </div>
+        <div class="pontos" id="pontos"></div>
+        <div class="offline" id="offline"><i></i><span id="offlineText"></span></div>
+    </div>
+
+    <!-- Customize: dock apps, HDMI devices, preferences -->
+    <div class="modal-backdrop" id="settingsModal">
+        <div class="modal-box">
+            <div class="modal-header">
+                <div class="modal-title">Customize WebOS TV</div>
+                <div class="modal-hint">Press BACK or ESC to close</div>
+            </div>
+
+            <div>
+                <div class="modal-section-title">1. Select Apps for Glass Shelf (Click to Toggle)</div>
+                <div class="app-selector-grid" id="appSelectorGrid"></div>
+            </div>
+
+            <div>
+                <div class="modal-section-title">2. HDMI Devices</div>
+                <p class="modal-hint" style="margin: 0 0 12px;">Press a port to cycle its device. Save &amp; Apply to keep your choices.</p>
+                <div class="hdmi-options" id="hdmiOptions"></div>
+            </div>
+
+            <div>
+                <div class="modal-section-title">3. Preferences & Display</div>
+                <div class="settings-row">
+                    <div class="field-group">
+                        <label>Clock Format</label>
+                        <select class="field-input modal-nav" id="cfgClockFormat">
+                            <option value="24h">24-Hour (20:30)</option>
+                            <option value="12h">12-Hour (8:30 PM)</option>
+                        </select>
+                    </div>
+                    <div class="field-group">
+                        <label>Language</label>
+                        <select class="field-input modal-nav" id="cfgLang">
+                            <option value="auto">Auto (TV language)</option>
+                            <option value="en">English</option>
+                            <option value="pt">Português (Brasil)</option>
+                            <option value="es">Español</option>
+                            <option value="de">Deutsch</option>
+                            <option value="fr">Français</option>
+                        </select>
+                    </div>
+                    <div class="field-group">
+                        <label>Text Size (weather & clock)</label>
+                        <select class="field-input modal-nav" id="cfgTextSize">
+                            <option value="normal">Normal</option>
+                            <option value="large">Large</option>
+                            <option value="xlarge">Extra large</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal-actions">
+                <span class="modal-version" id="appVersion"></span>
+                <button class="btn-secondary modal-nav" id="reorderShelfBtn">Reorder</button>
+                <button class="btn-secondary modal-nav" id="resetDefaultBtn">Reset Defaults</button>
+                <button class="btn-secondary modal-nav" id="closeModalBtn">Cancel</button>
+                <button class="btn-primary modal-nav" id="saveModalBtn">Save & Apply</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- All Apps: every installed app, not just the ones on the dock -->
+    <div class="modal-backdrop" id="allAppsModal">
+        <div class="modal-box">
+            <div class="modal-header">
+                <div class="modal-title">All apps</div>
+                <div class="modal-hint">Press BACK or ESC to close</div>
+            </div>
+            <div class="all-apps-grid" id="allAppsGrid"></div>
+            <div class="modal-actions">
+                <button class="btn-secondary modal-nav" id="closeAllAppsBtn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Running Apps: opened by the Exit key (holding Back), closes apps left in the background -->
+    <div class="modal-backdrop" id="runningModal">
+        <div class="modal-box">
+            <div class="modal-header">
+                <div class="modal-title">Running Apps</div>
+                <div class="modal-hint">Press BACK or ESC to close</div>
+            </div>
+            <div class="running-hint" id="runningHint"></div>
+            <div class="all-apps-grid" id="runningGrid"></div>
+            <div class="modal-actions">
+                <button class="btn-secondary modal-nav" id="closeAllRunningBtn">Close All</button>
+                <button class="btn-secondary modal-nav" id="closeRunningBtn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Default Catalog of Apps ---
+        // Snapshot of what's actually installed on this TV (read from
+        // /media/cryptofs/apps, /media/system/apps and /usr/palm/applications over
+        // root SSH, since listLaunchPoints is denied to Dev Mode apps on this SDK and
+        // the SSAP fallback only ever adds to whatever's already here). Rebuild this
+        // list after installing or removing an app.
+        var DEFAULT_CATALOG = [
+            { id: 'netflix', title: 'Netflix', tag: 'Movies & Series', desc: 'Unlimited movies, TV shows, and originals in 4K Dolby Vision.', color: '#e50914', badge: 'N', bg: 'linear-gradient(135deg, #1f1f1f, #080808)' },
+            { id: 'youtube.leanback.v4', title: 'YouTube', tag: 'Streaming', desc: 'Watch 4K videos, live streams, music, and coding radio.', color: '#ff0000', badge: 'YT', bg: 'linear-gradient(135deg, #ff0000, #b00000)' },
+            { id: 'amazon', title: 'Prime Video', tag: 'Movies & Shows', desc: 'Watch Amazon Originals, popular movies, and live sports.', color: '#00a8e1', badge: 'prime', bg: 'linear-gradient(135deg, #00a8e1, #00628a)' },
+            { id: 'com.disney.disneyplus-prod', title: 'Disney+', tag: 'Streaming', desc: 'Disney, Pixar, Marvel, Star Wars, and National Geographic.', color: '#113ccf', badge: 'D+', bg: 'linear-gradient(135deg, #113ccf, #071961)' },
+            { id: 'com.wbd.stream', title: 'HBO Max', tag: 'Streaming', desc: 'Stream and watch TV, movies, and more from Warner Bros. Discovery.', color: '#9b30ff', badge: 'Max', bg: 'linear-gradient(135deg, #3d1a6b, #140522)' },
+            { id: 'globoplaywebos', title: 'Globoplay', tag: 'Brazil Streaming', desc: 'Original series, live channels, sports, and cinema.', color: '#fb003f', badge: 'globo', bg: 'linear-gradient(135deg, #fb003f, #aa002a)', iconBg: '#f50234' },
+            { id: 'spotify-beehive', title: 'Spotify', tag: 'Music', desc: 'Listen to millions of songs, albums, and podcasts on your TV.', color: '#1db954', badge: 'SP', bg: 'linear-gradient(135deg, #1db954, #0f7833)' },
+            { id: 'com.apple.appletv', title: 'Apple TV', tag: 'Movies & Shows', desc: 'Apple TV+ originals, movies, and shows.', color: '#cccccc', badge: 'tv', bg: 'linear-gradient(135deg, #2b2b2b, #000000)' },
+            { id: 'com.microsoft.xbox', title: 'Xbox', tag: 'Cloud Gaming', desc: 'Play Xbox games in the cloud, no console needed.', color: '#107c10', badge: 'XBOX', bg: 'linear-gradient(135deg, #107c10, #0a4a0a)' },
+            { id: 'com.geforcenow.play', title: 'GeForce NOW', tag: 'Cloud Gaming', desc: 'Play top PC games on your LG TV without a console.', color: '#76b900', badge: 'GFN', bg: 'linear-gradient(135deg, #1e1e1e, #000000)', iconBg: '#1e1e1e' },
+            { id: 'com.boosteroidtv.streaming', title: 'Boosteroid', tag: 'Cloud Gaming', desc: 'Play top PC games on your LG TV without a console.', color: '#5a36ed', badge: 'BST', bg: 'linear-gradient(135deg, #5a36ed, #2c1a78)', iconBg: '#5a36ed' },
+            { id: 'com.blacknut.app', title: 'Blacknut', tag: 'Cloud Gaming', desc: '100% cloud gaming, no downloads.', color: '#eb2553', badge: 'BN', bg: 'linear-gradient(135deg, #eb2553, #8a1230)', iconBg: '#eb2553' },
+            { id: 'io.strem.tv', title: 'Stremio', tag: 'Media Center', desc: 'Organize and stream movies, series and torrents.', color: '#8248e5', badge: 'STR', bg: 'linear-gradient(135deg, #100f1f, #000000)' },
+            { id: 'org.webostv.play', title: 'WebOS TV Player', tag: 'IPTV', desc: 'Your IPTV list: trending titles, new releases, movies and series.', color: '#0a84ff', badge: 'PLAY', bg: 'linear-gradient(135deg, #2d7dd2, #0a2e6e)' },
+            { id: 'app.hotiptv', title: 'Hot IPTV', tag: 'IPTV', desc: 'IPTV player.', color: '#0f172a', badge: 'IPTV', bg: 'linear-gradient(135deg, #0f172a, #000000)', iconBg: '#0f172a' },
+            { id: 'com.iiptvplayer.app', title: '4K IPTV Player', tag: 'IPTV', desc: 'IPTV player.', color: '#151515', badge: '4K', bg: 'linear-gradient(135deg, #151515, #000000)', iconBg: '#151515' },
+            { id: 'com.webos.app.lgchannels', title: 'LG Channels', tag: 'Live TV', desc: 'Free live channels and on-demand content, no subscription.', color: '#a50034', badge: 'LGC', bg: 'linear-gradient(135deg, #a50034, #5c001d)', iconBg: '#fd312e' },
+            { id: 'com.webos.app.livetv', title: 'Live TV', tag: 'Antenna / Cable', desc: 'Watch live broadcast channels.', color: '#2d7dd2', badge: 'TV', bg: 'linear-gradient(135deg, #2d7dd2, #184a80)', iconBg: '#e55e78' },
+            { id: 'com.webos.app.mediadiscovery', title: 'Media Player', tag: 'Local Media', desc: 'Play photos, videos, and music from USB or DLNA servers.', color: '#7e56b1', badge: 'USB', bg: 'linear-gradient(135deg, #7e56b1, #4f3278)' },
+            { id: 'com.webos.app.lifeonscreen', title: 'LG Gallery+', tag: 'Art & Photos', desc: 'Art, photos, and ambient screens for your TV.', color: '#4a4a4a', badge: 'ART', bg: 'linear-gradient(135deg, #4a4a4a, #1f1f1f)' },
+            { id: 'org.webosbrew.hbchannel', title: 'Homebrew', tag: 'System', desc: 'Homebrew Channel app store and system tweaks.', color: '#cf0652', badge: 'HB', bg: 'linear-gradient(135deg, #cf0652, #8b0034)' },
+            { id: 'com.webos.app.hdmi1', title: 'HDMI 1', tag: 'External Input', desc: 'Switch directly to HDMI 1 (PC / Gaming Console).', color: '#0a84ff', badge: 'HDMI 1', bg: 'linear-gradient(135deg, #0a84ff, #004ec4)' },
+            { id: 'com.webos.app.hdmi2', title: 'HDMI 2', tag: 'External Input', desc: 'Switch directly to HDMI 2 input.', color: '#00c7be', badge: 'HDMI 2', bg: 'linear-gradient(135deg, #00c7be, #007a74)' },
+            { id: 'com.webos.app.hdmi3', title: 'HDMI 3', tag: 'External Input', desc: 'Switch directly to HDMI 3 input.', color: '#0a84ff', badge: 'HDMI 3', bg: 'linear-gradient(135deg, #0a84ff, #004ec4)' },
+            { id: 'com.webos.app.hdmi4', title: 'HDMI 4', tag: 'External Input', desc: 'Switch directly to HDMI 4 input.', color: '#0a84ff', badge: 'HDMI 4', bg: 'linear-gradient(135deg, #0a84ff, #004ec4)' }
+        ];
+
+        // Device artwork is bundled inline so HDMI tiles also work offline.
+        var DEVICE_PRESETS = [
+            { key: 'default', title: '', color: '#0a84ff', shape: 'input' },
+            { key: 'ps5', title: 'PS5', color: '#123ca6', logo: 'playstation5' },
+            { key: 'ps4', title: 'PS4', color: '#173070', logo: 'playstation4' },
+            { key: 'xbox', title: 'Xbox', color: '#107c10', logo: 'xbox' },
+            { key: 'switch', title: 'Nintendo Switch', color: '#c82131', logo: 'nintendoswitch' },
+            { key: 'pc', title: 'Gaming PC', color: '#633ca6', shape: 'pc' }
+        ];
+        function readDeviceChoices() {
+            try {
+                var saved = JSON.parse(localStorage.getItem('fmtv_hdmi_devices') || '{}');
+                return saved && typeof saved === 'object' && !Array.isArray(saved) ? saved : {};
+            } catch (e) { return {}; }
+        }
+        function isHDMI(app) { return /^com\.webos\.app\.hdmi[1-4]$/.test(app.id); }
+        function devicePreset(app, choices) {
+            if (!isHDMI(app)) return DEVICE_PRESETS[0];
+            return arrFind(DEVICE_PRESETS, function(p) { return p.key === choices[app.id]; }) || DEVICE_PRESETS[0];
+        }
+        function deviceArtwork(shape) {
+            var drawings = {
+                pc: '<rect x="15" y="26" width="90" height="61" rx="6" fill="none" stroke="white" stroke-width="6"/><path d="M60 88v13m-22 0h44M24 75h72" stroke="white" stroke-width="6"/>',
+                input: '<path d="M25 34h70v37L80 86H40L25 71Z" fill="none" stroke="white" stroke-width="6"/><path d="M39 48v18m14-18v18m14-18v18m14-18v18" stroke="white" stroke-width="5"/>'
+            };
+            return '<svg viewBox="0 0 120 120" aria-hidden="true">' + drawings[shape] + '</svg>';
+        }
+        var APP_LOGOS = {
+            'youtube.leanback.v4': 'youtube',
+            'netflix': 'netflix',
+            'cdp-30': 'plex',
+            'com.crunchyroll.webapp': 'crunchyroll',
+            'amazon': 'amazonprime',
+            'com.disney.disneyplus-prod': 'disneyplus',
+            'spotify-beehive': 'spotify',
+            'com.apple.appletv': 'appletv',
+            'com.microsoft.xbox': 'xbox',
+            'io.strem.tv': 'stremio'
+        };
+        // Pre-colored brand badges (full artwork, own background and contrast already
+        // built in) that must render edge-to-edge, not recolored/shrunk like the
+        // Simple Icons SVGs in APP_LOGOS. Checked before APP_LOGOS and the device icon,
+        // and wins over both, so the app's own icon (sometimes outdated, as with
+        // HBO Max's pre-rebrand icon.png on this TV) never overwrites it.
+        var APP_ICON_OVERRIDES = {
+            'com.wbd.stream': 'assets/brands/hbomax.png',
+            'org.webostv.play': 'assets/brands/webostvplayer.png',
+            // Our YouTube (youtube-webos fork): the dark version of the logo, so it stands
+            // apart from the official app's red tile.
+            'org.webostv.youtube': 'assets/brands/webostvyoutube.png'
+        };
+
+        function addTileImage(container, url, branded, cover) {
+            var img = document.createElement('img');
+            img.alt = '';
+            if (branded) img.className = 'tile-brand-logo';
+            // Full-bleed badges (APP_ICON_OVERRIDES): .app-icon isn't square in every
+            // context (158x117 on the shelf, 1:1 in the All Apps drawer), so
+            // object-fit: contain letterboxes and the tile's own background color
+            // shows through the gap. cover fills it edge to edge instead; the source
+            // image needs enough margin around the mark to survive that crop.
+            if (cover) img.style.objectFit = 'cover';
+            var fallback = container.firstElementChild;
+            if (fallback) fallback.style.visibility = 'hidden';
+            img.onload = function() { if (fallback) fallback.style.visibility = 'hidden'; };
+            img.onerror = function() { img.remove(); if (fallback) fallback.style.visibility = ''; };
+            img.src = url;
+            container.appendChild(img);
+        }
+
+        // Root helper on the TV (/var/lib/webosbrew/webostv-helper, started at boot,
+        // 127.0.0.1 only). As Home this app can't read other apps' icons over file:// nor
+        // list/close running apps on the Luna bus; the helper does both as root.
+        var TV_HELPER = 'http://127.0.0.1:3911';
+
+        // Branded override (full-bleed) > Simple Icons mark > the app's own launcher icon
+        // served by the helper, on the icon's own background color so the letterbox of a
+        // square icon in the wider shelf tile blends in.
+        function fillAppIcon(iconDiv, app) {
+            var fallback = document.createElement('span');
+            fallback.className = 'app-art-fallback';
+            fallback.textContent = app.title;
+            iconDiv.appendChild(fallback);
+            var override = APP_ICON_OVERRIDES[app.id];
+            var logo = APP_LOGOS[app.id];
+            if (override) {
+                addTileImage(iconDiv, override, false, true);
+            } else if (logo) {
+                addTileImage(iconDiv, 'assets/brands/' + logo + '.svg', true);
+            } else {
+                if (app.iconBg) iconDiv.style.background = app.iconBg;
+                // v: bump when the helper starts serving different art; icons are cached a day.
+                addTileImage(iconDiv, TV_HELPER + '/icon?v=2&id=' + encodeURIComponent(app.id), false);
+            }
+        }
+
+        // Defaults match what's actually installed on this TV (see DEFAULT_CATALOG above),
+        // not a generic predefined set. Anything else is one tap away in Customize or the
+        // All Apps drawer.
+        var DEFAULT_FAVORITES = [
+            'netflix',
+            'youtube.leanback.v4',
+            'com.disney.disneyplus-prod',
+            'com.wbd.stream',
+            'amazon',
+            'globoplaywebos',
+            'spotify-beehive'
+        ];
+
+        // --- Persistent State ---
+        var state = {
+            favorites: JSON.parse(localStorage.getItem('fmtv_favorites') || 'null') || DEFAULT_FAVORITES.slice(),
+            hdmiDevices: readDeviceChoices(),
+            clockFormat: localStorage.getItem('fmtv_clock_format') || '24h',
+            lang: localStorage.getItem('fmtv_lang') || 'auto',
+            textSize: localStorage.getItem('fmtv_text_size') || 'normal',
+            catalog: DEFAULT_CATALOG.slice()
+        };
+
+        // --- Localization ---
+        // English is the source language: every UI string below is looked up by its
+        // English text, and anything without a translation simply stays English.
+        // Written in plain ES5 for the Chromium 38 engine on webOS 3.x.
+        var APP_VERSION = '2.0.5'; // keep equal to app/appinfo.json (scripts/check.py enforces it)
+
+        var I18N = {
+            pt: {
+                '⚙️ Customize': '⚙️ Personalizar', 'Favorite Apps': 'Apps Favoritos', 'Reorder': 'Reordenar', 'Done': 'Concluir', 'Cancel': 'Cancelar',
+                'Trending This Week': 'Em Alta na Semana', 'Movies': 'Filmes', 'Shows': 'Séries', 'New': 'Novidades',
+                'Customize Free My TV': 'Personalizar o Free My TV', 'Press BACK or ESC to close': 'Pressione VOLTAR ou ESC para fechar',
+                '1. Select Apps for Glass Shelf (Click to Toggle)': '1. Escolha os Apps da Prateleira (Clique para Alternar)',
+                '2. HDMI Devices': '2. Dispositivos HDMI',
+                'Press a port to cycle its device. Save & Apply to keep your choices.': 'Pressione uma porta para trocar o dispositivo. Use Salvar e Aplicar para manter.',
+                '3. Preferences & Display': '3. Preferências e Tela',
+                'City Name (or leave Auto)': 'Nome da Cidade (ou deixe Auto)', 'Theme Mode': 'Tema',
+                'Auto (Follows Sunset)': 'Auto (Segue o Pôr do Sol)', 'Deep Midnight (Default)': 'Meia-Noite (Padrão)', 'Pure OLED Black': 'Preto OLED Puro', 'Daylight Blue': 'Azul Diurno',
+                'Clock Format': 'Formato do Relógio', '24-Hour (20:30)': '24 Horas (20:30)', '12-Hour (8:30 PM)': '12 Horas (8:30 PM)',
+                'Performance Mode': 'Modo de Desempenho', 'Standard (Glass & Glow)': 'Padrão (Vidro e Brilho)', 'High Performance (60 FPS Boost)': 'Alto Desempenho (60 FPS)',
+                'Auto-locate by IP (sends your IP to ipapi.co)': 'Localizar por IP (envia seu IP ao ipapi.co)', 'Off (use the city above)': 'Desligado (usar a cidade acima)', 'On': 'Ligado',
+                'TMDB API Key (Optional)': 'Chave da API TMDB (Opcional)', 'Language': 'Idioma', 'Auto (TV language)': 'Auto (idioma da TV)',
+                'Text Size (weather & clock)': 'Tamanho do texto (clima e relógio)', 'Normal': 'Normal', 'Large': 'Grande', 'Extra large': 'Extra grande',
+                'Reset Defaults': 'Restaurar Padrões', 'Save & Apply': 'Salvar e Aplicar',
+                'Weather & Sun': 'Clima e Sol', 'Next Hours': 'Próximas Horas', 'Sunrise': 'Nascer do Sol', 'Sunset': 'Pôr do Sol', 'Close': 'Fechar',
+                'Running Apps': 'Apps em execução', 'Close All': 'Fechar todos', 'Loading…': 'Carregando…',
+                'My Shows': 'Minhas Séries', 'Following': 'Seguindo', 'The series you follow, where you stopped and their new episodes.': 'As séries que você segue, onde parou e os episódios novos.',
+                'Your IPTV list: trending titles, new releases, movies and series.': 'Sua lista IPTV: em alta, novidades, filmes e séries.',
+                'Updating…': 'Atualizando…', 'Updating %s%': 'Atualizando %s%', 'Removing': 'Removendo',
+                'No shows yet': 'Nenhuma série ainda', 'Watch a series in WebOS TV Player to follow it here.': 'Assista a uma série no WebOS TV Player para acompanhá-la aqui.',
+                'Could not load your shows.': 'Não foi possível carregar suas séries.', 'Stopped at %s': 'Parou em %s',
+                '%s new episodes': '%s episódios novos', '1 new episode': '1 episódio novo', 'Up to date': 'Em dia', 'Next episode %s': 'Próximo episódio %s',
+                'Latest episode: %s': 'Último episódio: %s', 'Watch': 'Assistir', 'Watched next episode': 'Vi o próximo episódio', 'Unfollow': 'Parar de seguir',
+                'Stopped following %s': 'Deixou de seguir %s', 'Could not save. Please try again.': 'Não foi possível salvar. Tente de novo.',
+                'Marked %s as watched': '%s marcado como visto',
+                'Select an app to close it.': 'Selecione um app para fechá-lo.', 'No other apps are running.': 'Nenhum outro app em execução.',
+                'Could not list running apps.': 'Não foi possível listar os apps em execução.',
+                'e.g. Sao Paulo, Lisbon, NYC': 'ex.: São Paulo, Lisboa, Nova York', 'Optional for TMDB Trending': 'Opcional para o TMDB em Alta',
+                'Personalize': 'Personalizar', 'Customize Shelf & Settings': 'Personalizar Prateleira e Ajustes',
+                'Choose which installed TV apps appear on your shelf, configure weather city, and TMDB key.': 'Escolha quais apps da TV aparecem na prateleira, a cidade do clima e a chave do TMDB.',
+                'Live Forecast': 'Previsão ao Vivo', 'Local Weather & Sunset': 'Clima Local e Pôr do Sol', 'Live temperature and sky conditions powered by Open-Meteo.': 'Temperatura e condições do céu ao vivo via Open-Meteo.',
+                'Reorder tiles': 'Reordenar blocos', 'Rearrange your apps right here on the shelf.': 'Reorganize seus apps aqui mesmo na prateleira.',
+                'Save tile order': 'Salvar ordem', 'Cancel reordering': 'Cancelar reordenação', 'Trending': 'Em Alta',
+                "Switch the row below to this week's trending movies.": 'Mostra os filmes em alta da semana na linha abaixo.',
+                "Switch the row below to this week's trending TV shows.": 'Mostra as séries em alta da semana na linha abaixo.',
+                "Switch the row below to new movie and show releases, when TMDB has them.": 'Mostra lançamentos recentes de filmes e séries na linha abaixo, quando o TMDB tiver.',
+                'App Launcher': 'Lançador de Apps', 'Clean & Ad-Free Home': 'Início Limpo e Sem Anúncios',
+                'Navigate smoothly with Magic Remote D-Pad or pointer. Launch apps in 100ms with zero ads.': 'Navegue com o direcional ou o ponteiro do Magic Remote. Abra apps em 100 ms, sem anúncios.',
+                'Selection': 'Seleção',
+                'Streaming': 'Streaming', 'Movies & Series': 'Filmes e Séries', 'Personal Media': 'Mídia Pessoal', 'Anime': 'Anime', 'Brazil Streaming': 'Streaming Brasileiro',
+                'External Input': 'Entrada Externa', 'Internet': 'Internet', 'System': 'Sistema', 'Local Media': 'Mídia Local', 'Movies & Shows': 'Filmes e Séries', 'Music': 'Música',
+                'Watch 4K videos, live streams, music, and coding radio.': 'Assista a vídeos em 4K, transmissões ao vivo e música.',
+                'Unlimited movies, TV shows, and originals in 4K Dolby Vision.': 'Filmes, séries e originais ilimitados em 4K Dolby Vision.',
+                'Stream your personal home cinema, movies, and music library.': 'Sua biblioteca pessoal de filmes e músicas.',
+                "Stream the world's largest anime library and simulcasts.": 'A maior biblioteca de animes e simulcasts do mundo.',
+                'Original series, live channels, sports, and cinema.': 'Séries originais, canais ao vivo, esportes e cinema.',
+                'Switch directly to HDMI 1 (PC / Gaming Console).': 'Troque direto para o HDMI 1 (PC / Console).',
+                'Switch directly to HDMI 2 input.': 'Troque direto para a entrada HDMI 2.', 'Switch directly to HDMI 3 input.': 'Troque direto para a entrada HDMI 3.', 'Switch directly to HDMI 4 input.': 'Troque direto para a entrada HDMI 4.',
+                'Full-screen web browsing on your LG Smart TV.': 'Navegação web em tela cheia na sua LG Smart TV.',
+                'Homebrew Channel app store, YouTube AdFree, and system tweaks.': 'Loja de apps do Homebrew Channel, YouTube sem anúncios e ajustes do sistema.',
+                'Play photos, videos, and music from USB or DLNA servers.': 'Reproduza fotos, vídeos e músicas de USB ou servidores DLNA.',
+                'Watch Amazon Originals, popular movies, and live sports.': 'Assista a Amazon Originals, filmes populares e esportes ao vivo.',
+                'Disney, Pixar, Marvel, Star Wars, and National Geographic.': 'Disney, Pixar, Marvel, Star Wars e National Geographic.',
+                'Listen to millions of songs, albums, and podcasts on your TV.': 'Ouça milhões de músicas, álbuns e podcasts na TV.',
+                'OLED Zero • 60 FPS': 'OLED Zero • 60 FPS', 'Daylight • 60 FPS': 'Dia • 60 FPS', 'Sunset • 60 FPS': 'Pôr do Sol • 60 FPS', 'Night • 60 FPS': 'Noite • 60 FPS', '60 FPS • Onboard': '60 FPS • Na TV',
+                'Clear': 'Limpo', 'Offline Mode': 'Modo Offline',
+                'Clear Sky': 'Céu Limpo', 'Mostly Clear': 'Predomínio de Sol', 'Partly Cloudy': 'Parcialmente Nublado', 'Overcast': 'Nublado', 'Foggy': 'Neblina', 'Light Drizzle': 'Garoa',
+                'Rain': 'Chuva', 'Moderate Rain': 'Chuva Moderada', 'Snow': 'Neve', 'Rain Showers': 'Pancadas de Chuva', 'Thunderstorm': 'Tempestade', 'Fair': 'Tempo Firme',
+                'Curated Picks': 'Seleção Curada', 'TMDB Live': 'TMDB ao Vivo', 'Live Popular Feed': 'Populares ao Vivo', 'Watch on %s': 'Assista no %s', 'Watch trailer on YouTube': 'Ver trailer no YouTube', 'Trending Series': 'Série em Alta', 'Series': 'Série', 'Movie': 'Filme', 
+                'Accept the request on screen so Free My TV can list your installed apps.': 'Aceite o pedido na tela para o Free My TV listar seus apps instalados.',
+                'Open %s on your LG TV. Launching is unavailable in this preview.': 'Abra %s na sua TV LG. A abertura não está disponível nesta prévia.',
+                'Opening %s…': 'Abrindo %s…', '%s is not installed or is unavailable on this TV.': '%s não está instalado ou não está disponível nesta TV.',
+                'Could not open %s. Check that it is installed, then try again.': 'Não foi possível abrir %s. Verifique se está instalado e tente de novo.',
+                'Could not confirm %s opened. Please try again.': 'Não foi possível confirmar a abertura de %s. Tente novamente.',
+                'No response opening %s. Please try again.': 'Sem resposta ao abrir %s. Tente novamente.',
+                '← / → Move • OK Place • Back Cancel': '← / → Mover • OK Soltar • Voltar Cancelar', 'Select a tile • OK Pick up • Done to save': 'Escolha um bloco • OK Pegar • Concluir para salvar',
+                '%s Apps • Instant Launch': '%s Apps • Abertura Instantânea',
+                'Select a tile first': 'Escolha um bloco primeiro', 'Could not save the order. Please try again.': 'Não foi possível salvar a ordem. Tente novamente.',
+                'Tile order saved': 'Ordem salva', 'Reordering cancelled': 'Reordenação cancelada', 'Max 8 apps on shelf': 'Máximo de 8 apps na prateleira',
+                'Defaults restored': 'Padrões restaurados', 'Saved & Applied!': 'Salvo e aplicado!',
+                // Home 2.0 (Ambiente)
+                'Customize WebOS TV': 'Personalizar o WebOS TV', 'All apps': 'Todos os apps', 'Settings': 'Ajustes',
+                'Continue': 'Continuar', "Today's games": 'Jogos de hoje', 'For you': 'Para você', 'Top Brazil': 'Top Brasil',
+                'Press down for': 'Desça para', ' and ': ' e ', 'switch rows': 'troca a fileira',
+                'no connection to the homeserver · showing the last copy': 'sem conexão com o homeserver · mostrando a última cópia',
+                'Open Live': 'Abrir o Ao vivo', 'Live': 'Ao vivo', 'Channels, favorites and guide': 'Canais, favoritos e grade',
+                'LIVE': 'AO VIVO', 'reminder on': 'aviso ligado', 'Remind me': 'Avisar', 'today %s': 'hoje %s', 'tomorrow %s': 'amanhã %s',
+                '%s left': 'restam %s', 'next episode': 'próximo episódio', 'NEW EP': 'NOVO EP', 'No. %s today': 'nº %s hoje',
+                'Live channel': 'Canal ao vivo', 'until %s': 'até %s', 'max %s° min %s°': 'máx %s° mín %s°', 'sunset %s': 'pôr do sol %s',
+                'just now': 'agora há pouco', '%s min ago': 'há %s min', '%s h ago': 'há %s h', 'yesterday': 'ontem', '%s days ago': 'há %s dias'
+            },
+            es: {
+                '⚙️ Customize': '⚙️ Personalizar', 'Favorite Apps': 'Apps Favoritas', 'Reorder': 'Reordenar', 'Done': 'Listo', 'Cancel': 'Cancelar',
+                'Trending This Week': 'Tendencias de la Semana', 'Movies': 'Películas', 'Shows': 'Series', 'New': 'Novedades',
+                'Customize Free My TV': 'Personalizar Free My TV', 'Press BACK or ESC to close': 'Pulsa ATRÁS o ESC para cerrar',
+                '1. Select Apps for Glass Shelf (Click to Toggle)': '1. Elige las Apps del Estante (Clic para Alternar)',
+                '2. HDMI Devices': '2. Dispositivos HDMI',
+                'Press a port to cycle its device. Save & Apply to keep your choices.': 'Pulsa un puerto para cambiar su dispositivo. Usa Guardar y Aplicar para conservarlo.',
+                '3. Preferences & Display': '3. Preferencias y Pantalla',
+                'City Name (or leave Auto)': 'Nombre de la Ciudad (o deja Auto)', 'Theme Mode': 'Tema',
+                'Auto (Follows Sunset)': 'Auto (Sigue el Atardecer)', 'Deep Midnight (Default)': 'Medianoche (Predeterminado)', 'Pure OLED Black': 'Negro OLED Puro', 'Daylight Blue': 'Azul Diurno',
+                'Clock Format': 'Formato del Reloj', '24-Hour (20:30)': '24 Horas (20:30)', '12-Hour (8:30 PM)': '12 Horas (8:30 PM)',
+                'Performance Mode': 'Modo de Rendimiento', 'Standard (Glass & Glow)': 'Estándar (Cristal y Brillo)', 'High Performance (60 FPS Boost)': 'Alto Rendimiento (60 FPS)',
+                'Auto-locate by IP (sends your IP to ipapi.co)': 'Ubicar por IP (envía tu IP a ipapi.co)', 'Off (use the city above)': 'Desactivado (usar la ciudad de arriba)', 'On': 'Activado',
+                'TMDB API Key (Optional)': 'Clave API de TMDB (Opcional)', 'Language': 'Idioma', 'Auto (TV language)': 'Auto (idioma del TV)',
+                'Text Size (weather & clock)': 'Tamaño del texto (clima y reloj)', 'Normal': 'Normal', 'Large': 'Grande', 'Extra large': 'Extra grande',
+                'Reset Defaults': 'Restablecer', 'Save & Apply': 'Guardar y Aplicar',
+                'Weather & Sun': 'Clima y Sol', 'Next Hours': 'Próximas Horas', 'Sunrise': 'Amanecer', 'Sunset': 'Atardecer', 'Close': 'Cerrar',
+                'Running Apps': 'Apps en ejecución', 'Close All': 'Cerrar todas', 'Loading…': 'Cargando…',
+                'Select an app to close it.': 'Selecciona una app para cerrarla.', 'No other apps are running.': 'No hay otras apps en ejecución.',
+                'Could not list running apps.': 'No se pudieron listar las apps en ejecución.',
+                'e.g. Sao Paulo, Lisbon, NYC': 'p. ej. Madrid, Lisboa, Nueva York', 'Optional for TMDB Trending': 'Opcional para tendencias de TMDB',
+                'Personalize': 'Personalizar', 'Customize Shelf & Settings': 'Personalizar Estante y Ajustes',
+                'Choose which installed TV apps appear on your shelf, configure weather city, and TMDB key.': 'Elige qué apps del TV aparecen en el estante, la ciudad del clima y la clave de TMDB.',
+                'Live Forecast': 'Pronóstico en Vivo', 'Local Weather & Sunset': 'Clima Local y Atardecer', 'Live temperature and sky conditions powered by Open-Meteo.': 'Temperatura y cielo en vivo con Open-Meteo.',
+                'Reorder tiles': 'Reordenar mosaicos', 'Rearrange your apps right here on the shelf.': 'Reorganiza tus apps aquí mismo en el estante.',
+                'Save tile order': 'Guardar orden', 'Cancel reordering': 'Cancelar reordenación', 'Trending': 'Tendencias',
+                "Switch the row below to this week's trending movies.": 'Muestra las películas en tendencia de la semana en la fila de abajo.',
+                "Switch the row below to this week's trending TV shows.": 'Muestra las series en tendencia de la semana en la fila de abajo.',
+                "Switch the row below to new movie and show releases, when TMDB has them.": 'Muestra estrenos recientes de películas y series en la fila de abajo, cuando TMDB los tenga.',
+                'App Launcher': 'Lanzador de Apps', 'Clean & Ad-Free Home': 'Inicio Limpio y Sin Anuncios',
+                'Navigate smoothly with Magic Remote D-Pad or pointer. Launch apps in 100ms with zero ads.': 'Navega con la cruceta o el puntero del Magic Remote. Abre apps en 100 ms, sin anuncios.',
+                'Selection': 'Selección',
+                'Streaming': 'Streaming', 'Movies & Series': 'Películas y Series', 'Personal Media': 'Medios Personales', 'Anime': 'Anime', 'Brazil Streaming': 'Streaming de Brasil',
+                'External Input': 'Entrada Externa', 'Internet': 'Internet', 'System': 'Sistema', 'Local Media': 'Medios Locales', 'Movies & Shows': 'Películas y Series', 'Music': 'Música',
+                'Watch 4K videos, live streams, music, and coding radio.': 'Mira vídeos en 4K, directos y música.',
+                'Unlimited movies, TV shows, and originals in 4K Dolby Vision.': 'Películas, series y originales sin límite en 4K Dolby Vision.',
+                'Stream your personal home cinema, movies, and music library.': 'Tu biblioteca personal de películas y música.',
+                "Stream the world's largest anime library and simulcasts.": 'La mayor biblioteca de anime y simulcasts del mundo.',
+                'Original series, live channels, sports, and cinema.': 'Series originales, canales en vivo, deportes y cine.',
+                'Switch directly to HDMI 1 (PC / Gaming Console).': 'Cambia directo a HDMI 1 (PC / Consola).',
+                'Switch directly to HDMI 2 input.': 'Cambia directo a la entrada HDMI 2.', 'Switch directly to HDMI 3 input.': 'Cambia directo a la entrada HDMI 3.', 'Switch directly to HDMI 4 input.': 'Cambia directo a la entrada HDMI 4.',
+                'Full-screen web browsing on your LG Smart TV.': 'Navegación web a pantalla completa en tu LG Smart TV.',
+                'Homebrew Channel app store, YouTube AdFree, and system tweaks.': 'Tienda de apps de Homebrew Channel, YouTube sin anuncios y ajustes del sistema.',
+                'Play photos, videos, and music from USB or DLNA servers.': 'Reproduce fotos, vídeos y música desde USB o servidores DLNA.',
+                'Watch Amazon Originals, popular movies, and live sports.': 'Mira Amazon Originals, películas populares y deportes en vivo.',
+                'Disney, Pixar, Marvel, Star Wars, and National Geographic.': 'Disney, Pixar, Marvel, Star Wars y National Geographic.',
+                'Listen to millions of songs, albums, and podcasts on your TV.': 'Escucha millones de canciones, álbumes y podcasts en tu TV.',
+                'OLED Zero • 60 FPS': 'OLED Zero • 60 FPS', 'Daylight • 60 FPS': 'Día • 60 FPS', 'Sunset • 60 FPS': 'Atardecer • 60 FPS', 'Night • 60 FPS': 'Noche • 60 FPS', '60 FPS • Onboard': '60 FPS • En el TV',
+                'Clear': 'Despejado', 'Offline Mode': 'Modo Sin Conexión',
+                'Clear Sky': 'Cielo Despejado', 'Mostly Clear': 'Mayormente Despejado', 'Partly Cloudy': 'Parcialmente Nublado', 'Overcast': 'Nublado', 'Foggy': 'Niebla', 'Light Drizzle': 'Llovizna',
+                'Rain': 'Lluvia', 'Moderate Rain': 'Lluvia Moderada', 'Snow': 'Nieve', 'Rain Showers': 'Chubascos', 'Thunderstorm': 'Tormenta', 'Fair': 'Buen Tiempo',
+                'Curated Picks': 'Selección Curada', 'TMDB Live': 'TMDB en Vivo', 'Live Popular Feed': 'Populares en Vivo', 'Watch on %s': 'Ver en %s', 'Watch trailer on YouTube': 'Ver tráiler en YouTube', 'Trending Series': 'Serie en Tendencia', 'Series': 'Serie', 'Movie': 'Película',
+                'Accept the request on screen so Free My TV can list your installed apps.': 'Acepta la solicitud en pantalla para que Free My TV pueda listar tus apps instaladas.',
+                'Open %s on your LG TV. Launching is unavailable in this preview.': 'Abre %s en tu TV LG. No se puede abrir en esta vista previa.',
+                'Opening %s…': 'Abriendo %s…', '%s is not installed or is unavailable on this TV.': '%s no está instalada o no está disponible en este TV.',
+                'Could not open %s. Check that it is installed, then try again.': 'No se pudo abrir %s. Comprueba que esté instalada e inténtalo de nuevo.',
+                'Could not confirm %s opened. Please try again.': 'No se pudo confirmar que %s se abrió. Inténtalo de nuevo.',
+                'No response opening %s. Please try again.': 'Sin respuesta al abrir %s. Inténtalo de nuevo.',
+                '← / → Move • OK Place • Back Cancel': '← / → Mover • OK Soltar • Atrás Cancelar', 'Select a tile • OK Pick up • Done to save': 'Elige un mosaico • OK Coger • Listo para guardar',
+                '%s Apps • Instant Launch': '%s Apps • Apertura Instantánea',
+                'Select a tile first': 'Elige un mosaico primero', 'Could not save the order. Please try again.': 'No se pudo guardar el orden. Inténtalo de nuevo.',
+                'Tile order saved': 'Orden guardado', 'Reordering cancelled': 'Reordenación cancelada', 'Max 8 apps on shelf': 'Máximo 8 apps en el estante',
+                'Defaults restored': 'Valores restablecidos', 'Saved & Applied!': '¡Guardado y aplicado!'
+            },
+            de: {
+                '⚙️ Customize': '⚙️ Anpassen', 'Favorite Apps': 'Lieblings-Apps', 'Reorder': 'Sortieren', 'Done': 'Fertig', 'Cancel': 'Abbrechen',
+                'Trending This Week': 'Trends der Woche', 'Movies': 'Filme', 'Shows': 'Serien', 'New': 'Neu',
+                'Customize Free My TV': 'Free My TV anpassen', 'Press BACK or ESC to close': 'Zum Schließen ZURÜCK oder ESC drücken',
+                '1. Select Apps for Glass Shelf (Click to Toggle)': '1. Apps für die Leiste wählen (Klicken zum Umschalten)',
+                '2. HDMI Devices': '2. HDMI-Geräte',
+                'Press a port to cycle its device. Save & Apply to keep your choices.': 'Anschluss drücken, um das Gerät zu wechseln. Mit Speichern & Anwenden übernehmen.',
+                '3. Preferences & Display': '3. Einstellungen & Anzeige',
+                'City Name (or leave Auto)': 'Stadtname (oder Auto lassen)', 'Theme Mode': 'Design',
+                'Auto (Follows Sunset)': 'Auto (folgt dem Sonnenuntergang)', 'Deep Midnight (Default)': 'Mitternacht (Standard)', 'Pure OLED Black': 'Reines OLED-Schwarz', 'Daylight Blue': 'Tagesblau',
+                'Clock Format': 'Uhrzeitformat', '24-Hour (20:30)': '24 Stunden (20:30)', '12-Hour (8:30 PM)': '12 Stunden (8:30 PM)',
+                'Performance Mode': 'Leistungsmodus', 'Standard (Glass & Glow)': 'Standard (Glas & Glanz)', 'High Performance (60 FPS Boost)': 'Hohe Leistung (60 FPS)',
+                'Auto-locate by IP (sends your IP to ipapi.co)': 'Standort per IP (sendet Ihre IP an ipapi.co)', 'Off (use the city above)': 'Aus (Stadt oben verwenden)', 'On': 'An',
+                'TMDB API Key (Optional)': 'TMDB-API-Schlüssel (optional)', 'Language': 'Sprache', 'Auto (TV language)': 'Auto (TV-Sprache)',
+                'Text Size (weather & clock)': 'Textgröße (Wetter & Uhr)', 'Normal': 'Normal', 'Large': 'Groß', 'Extra large': 'Sehr groß',
+                'Reset Defaults': 'Zurücksetzen', 'Save & Apply': 'Speichern & Anwenden',
+                'Weather & Sun': 'Wetter & Sonne', 'Next Hours': 'Nächste Stunden', 'Sunrise': 'Sonnenaufgang', 'Sunset': 'Sonnenuntergang', 'Close': 'Schließen',
+                'Running Apps': 'Laufende Apps', 'Close All': 'Alle schließen', 'Loading…': 'Lädt…',
+                'Select an app to close it.': 'Wähle eine App zum Schließen.', 'No other apps are running.': 'Keine anderen Apps laufen.',
+                'Could not list running apps.': 'Laufende Apps konnten nicht aufgelistet werden.',
+                'e.g. Sao Paulo, Lisbon, NYC': 'z. B. Berlin, Wien, Zürich', 'Optional for TMDB Trending': 'Optional für TMDB-Trends',
+                'Personalize': 'Anpassen', 'Customize Shelf & Settings': 'Leiste & Einstellungen anpassen',
+                'Choose which installed TV apps appear on your shelf, configure weather city, and TMDB key.': 'Wählen Sie, welche TV-Apps in der Leiste erscheinen, die Wetterstadt und den TMDB-Schlüssel.',
+                'Live Forecast': 'Live-Vorhersage', 'Local Weather & Sunset': 'Lokales Wetter & Sonnenuntergang', 'Live temperature and sky conditions powered by Open-Meteo.': 'Live-Temperatur und Himmelslage über Open-Meteo.',
+                'Reorder tiles': 'Kacheln sortieren', 'Rearrange your apps right here on the shelf.': 'Ordnen Sie Ihre Apps direkt in der Leiste neu an.',
+                'Save tile order': 'Reihenfolge speichern', 'Cancel reordering': 'Sortieren abbrechen', 'Trending': 'Trends',
+                "Switch the row below to this week's trending movies.": 'Zeigt unten die Film-Trends der Woche.',
+                "Switch the row below to this week's trending TV shows.": 'Zeigt unten die Serien-Trends der Woche.',
+                "Switch the row below to new movie and show releases, when TMDB has them.": 'Zeigt unten neue Film- und Serienveröffentlichungen, sofern TMDB welche hat.',
+                'App Launcher': 'App-Starter', 'Clean & Ad-Free Home': 'Aufgeräumter Startbildschirm ohne Werbung',
+                'Navigate smoothly with Magic Remote D-Pad or pointer. Launch apps in 100ms with zero ads.': 'Navigieren Sie mit Steuerkreuz oder Magic-Remote-Zeiger. Apps starten in 100 ms, ganz ohne Werbung.',
+                'Selection': 'Auswahl',
+                'Streaming': 'Streaming', 'Movies & Series': 'Filme & Serien', 'Personal Media': 'Eigene Medien', 'Anime': 'Anime', 'Brazil Streaming': 'Brasilien-Streaming',
+                'External Input': 'Externer Eingang', 'Internet': 'Internet', 'System': 'System', 'Local Media': 'Lokale Medien', 'Movies & Shows': 'Filme & Serien', 'Music': 'Musik',
+                'Watch 4K videos, live streams, music, and coding radio.': 'Videos in 4K, Livestreams und Musik.',
+                'Unlimited movies, TV shows, and originals in 4K Dolby Vision.': 'Unbegrenzt Filme, Serien und Originals in 4K Dolby Vision.',
+                'Stream your personal home cinema, movies, and music library.': 'Ihre persönliche Film- und Musikbibliothek.',
+                "Stream the world's largest anime library and simulcasts.": 'Die größte Anime-Bibliothek der Welt samt Simulcasts.',
+                'Original series, live channels, sports, and cinema.': 'Originalserien, Live-Sender, Sport und Kino.',
+                'Switch directly to HDMI 1 (PC / Gaming Console).': 'Direkt zu HDMI 1 wechseln (PC / Konsole).',
+                'Switch directly to HDMI 2 input.': 'Direkt zu HDMI 2 wechseln.', 'Switch directly to HDMI 3 input.': 'Direkt zu HDMI 3 wechseln.', 'Switch directly to HDMI 4 input.': 'Direkt zu HDMI 4 wechseln.',
+                'Full-screen web browsing on your LG Smart TV.': 'Vollbild-Surfen auf Ihrem LG Smart TV.',
+                'Homebrew Channel app store, YouTube AdFree, and system tweaks.': 'App-Store des Homebrew Channel, YouTube ohne Werbung und Systemanpassungen.',
+                'Play photos, videos, and music from USB or DLNA servers.': 'Fotos, Videos und Musik von USB oder DLNA-Servern abspielen.',
+                'Watch Amazon Originals, popular movies, and live sports.': 'Amazon Originals, beliebte Filme und Live-Sport.',
+                'Disney, Pixar, Marvel, Star Wars, and National Geographic.': 'Disney, Pixar, Marvel, Star Wars und National Geographic.',
+                'Listen to millions of songs, albums, and podcasts on your TV.': 'Millionen Songs, Alben und Podcasts auf Ihrem TV.',
+                'OLED Zero • 60 FPS': 'OLED Zero • 60 FPS', 'Daylight • 60 FPS': 'Tag • 60 FPS', 'Sunset • 60 FPS': 'Abendrot • 60 FPS', 'Night • 60 FPS': 'Nacht • 60 FPS', '60 FPS • Onboard': '60 FPS • Auf dem TV',
+                'Clear': 'Klar', 'Offline Mode': 'Offline-Modus',
+                'Clear Sky': 'Klarer Himmel', 'Mostly Clear': 'Überwiegend klar', 'Partly Cloudy': 'Teils bewölkt', 'Overcast': 'Bedeckt', 'Foggy': 'Nebel', 'Light Drizzle': 'Leichter Nieselregen',
+                'Rain': 'Regen', 'Moderate Rain': 'Mäßiger Regen', 'Snow': 'Schnee', 'Rain Showers': 'Regenschauer', 'Thunderstorm': 'Gewitter', 'Fair': 'Heiter',
+                'Curated Picks': 'Kuratierte Auswahl', 'TMDB Live': 'TMDB Live', 'Live Popular Feed': 'Live-Beliebtes', 'Watch on %s': 'Ansehen auf %s', 'Watch trailer on YouTube': 'Trailer auf YouTube ansehen', 'Trending Series': 'Trend-Serie', 'Series': 'Serie', 'Movie': 'Film',
+                'Accept the request on screen so Free My TV can list your installed apps.': 'Bestätigen Sie die Anfrage am Bildschirm, damit Free My TV Ihre installierten Apps auflisten kann.',
+                'Open %s on your LG TV. Launching is unavailable in this preview.': 'Öffnen Sie %s auf Ihrem LG-TV. Starten ist in dieser Vorschau nicht möglich.',
+                'Opening %s…': '%s wird geöffnet…', '%s is not installed or is unavailable on this TV.': '%s ist nicht installiert oder auf diesem TV nicht verfügbar.',
+                'Could not open %s. Check that it is installed, then try again.': '%s konnte nicht geöffnet werden. Prüfen Sie, ob es installiert ist, und versuchen Sie es erneut.',
+                'Could not confirm %s opened. Please try again.': 'Das Öffnen von %s konnte nicht bestätigt werden. Bitte erneut versuchen.',
+                'No response opening %s. Please try again.': 'Keine Antwort beim Öffnen von %s. Bitte erneut versuchen.',
+                '← / → Move • OK Place • Back Cancel': '← / → Bewegen • OK Ablegen • Zurück Abbrechen', 'Select a tile • OK Pick up • Done to save': 'Kachel wählen • OK Aufnehmen • Fertig zum Speichern',
+                '%s Apps • Instant Launch': '%s Apps • Sofortstart',
+                'Select a tile first': 'Zuerst eine Kachel wählen', 'Could not save the order. Please try again.': 'Reihenfolge konnte nicht gespeichert werden. Bitte erneut versuchen.',
+                'Tile order saved': 'Reihenfolge gespeichert', 'Reordering cancelled': 'Sortieren abgebrochen', 'Max 8 apps on shelf': 'Maximal 8 Apps in der Leiste',
+                'Defaults restored': 'Standardwerte wiederhergestellt', 'Saved & Applied!': 'Gespeichert & angewendet!'
+            },
+            fr: {
+                '⚙️ Customize': '⚙️ Personnaliser', 'Favorite Apps': 'Applis Favorites', 'Reorder': 'Réorganiser', 'Done': 'Terminé', 'Cancel': 'Annuler',
+                'Trending This Week': 'Tendances de la Semaine', 'Movies': 'Films', 'Shows': 'Séries', 'New': 'Nouveautés',
+                'Customize Free My TV': 'Personnaliser Free My TV', 'Press BACK or ESC to close': 'Appuyez sur RETOUR ou ÉCHAP pour fermer',
+                '1. Select Apps for Glass Shelf (Click to Toggle)': '1. Choisissez les Applis de l’Étagère (Cliquez pour Basculer)',
+                '2. HDMI Devices': '2. Appareils HDMI',
+                'Press a port to cycle its device. Save & Apply to keep your choices.': 'Appuyez sur un port pour changer d’appareil. Utilisez Enregistrer et Appliquer pour conserver.',
+                '3. Preferences & Display': '3. Préférences et Affichage',
+                'City Name (or leave Auto)': 'Nom de la Ville (ou laissez Auto)', 'Theme Mode': 'Thème',
+                'Auto (Follows Sunset)': 'Auto (Suit le Coucher du Soleil)', 'Deep Midnight (Default)': 'Minuit (Par défaut)', 'Pure OLED Black': 'Noir OLED Pur', 'Daylight Blue': 'Bleu Jour',
+                'Clock Format': 'Format de l’Horloge', '24-Hour (20:30)': '24 Heures (20:30)', '12-Hour (8:30 PM)': '12 Heures (8:30 PM)',
+                'Performance Mode': 'Mode Performance', 'Standard (Glass & Glow)': 'Standard (Verre et Lueur)', 'High Performance (60 FPS Boost)': 'Haute Performance (60 FPS)',
+                'Auto-locate by IP (sends your IP to ipapi.co)': 'Localiser par IP (envoie votre IP à ipapi.co)', 'Off (use the city above)': 'Désactivé (utiliser la ville ci-dessus)', 'On': 'Activé',
+                'TMDB API Key (Optional)': 'Clé API TMDB (Facultatif)', 'Language': 'Langue', 'Auto (TV language)': 'Auto (langue de la TV)',
+                'Text Size (weather & clock)': 'Taille du texte (météo et horloge)', 'Normal': 'Normal', 'Large': 'Grand', 'Extra large': 'Très grand',
+                'Reset Defaults': 'Réinitialiser', 'Save & Apply': 'Enregistrer et Appliquer',
+                'Weather & Sun': 'Météo et Soleil', 'Next Hours': 'Prochaines Heures', 'Sunrise': 'Lever du Soleil', 'Sunset': 'Coucher du Soleil', 'Close': 'Fermer',
+                'Running Apps': 'Applis en cours', 'Close All': 'Tout fermer', 'Loading…': 'Chargement…',
+                'Select an app to close it.': 'Choisissez une appli pour la fermer.', 'No other apps are running.': 'Aucune autre appli en cours.',
+                'Could not list running apps.': 'Impossible de lister les applis en cours.',
+                'e.g. Sao Paulo, Lisbon, NYC': 'p. ex. Paris, Lisbonne, New York', 'Optional for TMDB Trending': 'Facultatif pour les tendances TMDB',
+                'Personalize': 'Personnaliser', 'Customize Shelf & Settings': 'Personnaliser l’Étagère et les Réglages',
+                'Choose which installed TV apps appear on your shelf, configure weather city, and TMDB key.': 'Choisissez les applis de la TV affichées sur l’étagère, la ville météo et la clé TMDB.',
+                'Live Forecast': 'Prévisions en Direct', 'Local Weather & Sunset': 'Météo Locale et Coucher du Soleil', 'Live temperature and sky conditions powered by Open-Meteo.': 'Température et ciel en direct via Open-Meteo.',
+                'Reorder tiles': 'Réorganiser les tuiles', 'Rearrange your apps right here on the shelf.': 'Réorganisez vos applis directement sur l’étagère.',
+                'Save tile order': 'Enregistrer l’ordre', 'Cancel reordering': 'Annuler la réorganisation', 'Trending': 'Tendances',
+                "Switch the row below to this week's trending movies.": 'Affiche les films tendance de la semaine dans la rangée ci-dessous.',
+                "Switch the row below to this week's trending TV shows.": 'Affiche les séries tendance de la semaine dans la rangée ci-dessous.',
+                "Switch the row below to new movie and show releases, when TMDB has them.": 'Affiche les nouveautés films et séries dans la rangée ci-dessous, quand TMDB en a.',
+                'App Launcher': 'Lanceur d’Applis', 'Clean & Ad-Free Home': 'Accueil Épuré et Sans Publicité',
+                'Navigate smoothly with Magic Remote D-Pad or pointer. Launch apps in 100ms with zero ads.': 'Naviguez avec la croix directionnelle ou le pointeur Magic Remote. Lancez des applis en 100 ms, sans publicité.',
+                'Selection': 'Sélection',
+                'Streaming': 'Streaming', 'Movies & Series': 'Films et Séries', 'Personal Media': 'Médias Personnels', 'Anime': 'Anime', 'Brazil Streaming': 'Streaming Brésilien',
+                'External Input': 'Entrée Externe', 'Internet': 'Internet', 'System': 'Système', 'Local Media': 'Médias Locaux', 'Movies & Shows': 'Films et Séries', 'Music': 'Musique',
+                'Watch 4K videos, live streams, music, and coding radio.': 'Vidéos 4K, directs et musique.',
+                'Unlimited movies, TV shows, and originals in 4K Dolby Vision.': 'Films, séries et originaux illimités en 4K Dolby Vision.',
+                'Stream your personal home cinema, movies, and music library.': 'Votre bibliothèque personnelle de films et de musique.',
+                "Stream the world's largest anime library and simulcasts.": 'La plus grande bibliothèque d’animés et de simulcasts au monde.',
+                'Original series, live channels, sports, and cinema.': 'Séries originales, chaînes en direct, sport et cinéma.',
+                'Switch directly to HDMI 1 (PC / Gaming Console).': 'Basculez directement sur HDMI 1 (PC / Console).',
+                'Switch directly to HDMI 2 input.': 'Basculez directement sur l’entrée HDMI 2.', 'Switch directly to HDMI 3 input.': 'Basculez directement sur l’entrée HDMI 3.', 'Switch directly to HDMI 4 input.': 'Basculez directement sur l’entrée HDMI 4.',
+                'Full-screen web browsing on your LG Smart TV.': 'Navigation web en plein écran sur votre LG Smart TV.',
+                'Homebrew Channel app store, YouTube AdFree, and system tweaks.': 'Boutique d’applis Homebrew Channel, YouTube sans pub et réglages système.',
+                'Play photos, videos, and music from USB or DLNA servers.': 'Lisez photos, vidéos et musique depuis USB ou des serveurs DLNA.',
+                'Watch Amazon Originals, popular movies, and live sports.': 'Amazon Originals, films populaires et sport en direct.',
+                'Disney, Pixar, Marvel, Star Wars, and National Geographic.': 'Disney, Pixar, Marvel, Star Wars et National Geographic.',
+                'Listen to millions of songs, albums, and podcasts on your TV.': 'Des millions de titres, d’albums et de podcasts sur votre TV.',
+                'OLED Zero • 60 FPS': 'OLED Zero • 60 FPS', 'Daylight • 60 FPS': 'Jour • 60 FPS', 'Sunset • 60 FPS': 'Crépuscule • 60 FPS', 'Night • 60 FPS': 'Nuit • 60 FPS', '60 FPS • Onboard': '60 FPS • Sur la TV',
+                'Clear': 'Dégagé', 'Offline Mode': 'Mode Hors Ligne',
+                'Clear Sky': 'Ciel Dégagé', 'Mostly Clear': 'Plutôt Dégagé', 'Partly Cloudy': 'Partiellement Nuageux', 'Overcast': 'Couvert', 'Foggy': 'Brouillard', 'Light Drizzle': 'Légère Bruine',
+                'Rain': 'Pluie', 'Moderate Rain': 'Pluie Modérée', 'Snow': 'Neige', 'Rain Showers': 'Averses', 'Thunderstorm': 'Orage', 'Fair': 'Beau Temps',
+                'Curated Picks': 'Sélection', 'TMDB Live': 'TMDB en Direct', 'Live Popular Feed': 'Populaires en Direct', 'Watch on %s': 'À voir sur %s', 'Watch trailer on YouTube': 'Voir la bande-annonce sur YouTube', 'Trending Series': 'Série Tendance', 'Series': 'Série', 'Movie': 'Film',
+                'Accept the request on screen so Free My TV can list your installed apps.': 'Acceptez la demande à l’écran pour que Free My TV puisse lister vos applis installées.',
+                'Open %s on your LG TV. Launching is unavailable in this preview.': 'Ouvrez %s sur votre TV LG. Le lancement n’est pas disponible dans cet aperçu.',
+                'Opening %s…': 'Ouverture de %s…', '%s is not installed or is unavailable on this TV.': '%s n’est pas installée ou n’est pas disponible sur cette TV.',
+                'Could not open %s. Check that it is installed, then try again.': 'Impossible d’ouvrir %s. Vérifiez qu’elle est installée, puis réessayez.',
+                'Could not confirm %s opened. Please try again.': 'Impossible de confirmer l’ouverture de %s. Veuillez réessayer.',
+                'No response opening %s. Please try again.': 'Aucune réponse à l’ouverture de %s. Veuillez réessayer.',
+                '← / → Move • OK Place • Back Cancel': '← / → Déplacer • OK Poser • Retour Annuler', 'Select a tile • OK Pick up • Done to save': 'Choisissez une tuile • OK Saisir • Terminé pour enregistrer',
+                '%s Apps • Instant Launch': '%s Applis • Lancement Instantané',
+                'Select a tile first': 'Choisissez d’abord une tuile', 'Could not save the order. Please try again.': 'Impossible d’enregistrer l’ordre. Veuillez réessayer.',
+                'Tile order saved': 'Ordre enregistré', 'Reordering cancelled': 'Réorganisation annulée', 'Max 8 apps on shelf': '8 applis maximum sur l’étagère',
+                'Defaults restored': 'Valeurs par défaut rétablies', 'Saved & Applied!': 'Enregistré et appliqué !'
+            }
+        };
+        // Names shown in the Language setting (never translated, so they stay findable).
+        var LANG_LOCALES = { en: 'en-US', pt: 'pt-BR', es: 'es-ES', de: 'de-DE', fr: 'fr-FR' };
+
+        function currentLang() {
+            if (state.lang && state.lang !== 'auto') return state.lang;
+            var nav = ((window.navigator && (navigator.language || navigator.userLanguage)) || 'en').slice(0, 2).toLowerCase();
+            return LANG_LOCALES[nav] ? nav : 'en';
+        }
+
+        // t('Opening %s…', title): looks up the English text, then fills each %s in order.
+        function t(text) {
+            var dict = I18N[currentLang()];
+            var out = (dict && Object.prototype.hasOwnProperty.call(dict, text)) ? dict[text] : text;
+            for (var i = 1; i < arguments.length; i++) out = out.replace('%s', arguments[i]);
+            return out;
+        }
+
+        var I18N_SKIP_IDS = { appVersion: 1, themeBadge: 1, shelfCountHint: 1, picksSourceBadge: 1, toastMsg: 1 };
+
+        // Static markup is written in English; remember each translatable leaf's
+        // original text the first time through so switching languages is lossless.
+        function applyStaticTranslations() {
+            // Only the modals carry static text now; the Home screen is drawn with t() already.
+            var nodes = document.querySelectorAll('.modal-backdrop *');
+            for (var i = 0; i < nodes.length; i++) {
+                var el = nodes[i];
+                // SVG elements have no dataset before Chrome 55 (webOS 4.x).
+                if (el.tagName === 'SCRIPT' || I18N_SKIP_IDS[el.id] || el.children.length > 0 || !el.dataset) continue;
+                if (el.dataset.en === undefined) {
+                    var text = el.textContent.replace(/^\s+|\s+$/g, '');
+                    if (!text || !Object.prototype.hasOwnProperty.call(I18N.pt, text)) continue;
+                    el.dataset.en = text;
+                }
+                el.textContent = t(el.dataset.en);
+            }
+            var inputs = document.querySelectorAll('.modal-backdrop input[placeholder]');
+            for (var j = 0; j < inputs.length; j++) {
+                if (inputs[j].dataset.enPlaceholder === undefined) inputs[j].dataset.enPlaceholder = inputs[j].getAttribute('placeholder');
+                inputs[j].setAttribute('placeholder', t(inputs[j].dataset.enPlaceholder));
+            }
+            document.documentElement.setAttribute('lang', currentLang());
+        }
+
+        // --- Small helpers ---
+        function pad2(n) {
+            return ('0' + n).slice(-2);
+        }
+
+        // Array.prototype.find/findIndex, Array.from, and Object.assign are
+        // all ES6 and unavailable on the Chromium 38 engine LG ships on webOS 3.x
+        function arrFind(arr, predicate) {
+            for (var i = 0; i < arr.length; i++) {
+                if (predicate(arr[i], i)) return arr[i];
+            }
+            return undefined;
+        }
+
+        function arrFindIndex(arr, predicate) {
+            for (var i = 0; i < arr.length; i++) {
+                if (predicate(arr[i], i)) return i;
+            }
+            return -1;
+        }
+
+        function toArray(arrayLike) {
+            return Array.prototype.slice.call(arrayLike);
+        }
+
+        function shallowClone(obj) {
+            var copy = {};
+            for (var key in obj) {
+                if (Object.prototype.hasOwnProperty.call(obj, key)) copy[key] = obj[key];
+            }
+            return copy;
+        }
+
+        function byId(id) { return document.getElementById(id); }
+
+        /** Text from the homeserver or the TV goes into innerHTML strings only through this. */
+        function esc(s) {
+            return String(s == null ? '' : s).replace(/[&<>"']/g, function(c) {
+                return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+            });
+        }
+
+        /** innerHTML written only when it changed (each write re-lays out that box). */
+        function setHtml(el, html) {
+            if (el._html === html) return;
+            el._html = html;
+            el.innerHTML = html;
+        }
+
+        var tvEl = byId('tv');
+        var trilhoEl = byId('docaTrilho');
+        var faixaEl = byId('faixa');
+
+        // webOS 4.x and older (Chromium < 84): the class set by the probe in <head>.
+        var OLD_ENGINE = /(^|\s)no-flex-gap(\s|$)/.test(document.documentElement.className);
+
+        // --- Icons (inline SVG: no requests, nothing to decode) ---
+        var CLOUD = 'M6.5 19a4.5 4.5 0 0 1-.4-8.98A6 6 0 0 1 17.6 8.6 5.2 5.2 0 0 1 17.5 19z';
+        var CLOUD_UP = 'M6.5 15a4.5 4.5 0 0 1-.4-8.98A6 6 0 0 1 17.6 4.6 5.2 5.2 0 0 1 17.5 15z';
+        var LINE = ' fill="none" stroke-linecap="round" stroke-linejoin="round"';
+        function svgIcon(body, attrs) { return '<svg viewBox="0 0 24 24" aria-hidden="true"' + (attrs || '') + '>' + body + '</svg>'; }
+        var ICONS = {
+            sol: svgIcon('<circle cx="12" cy="12" r="4.4" fill="#f3c56b"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/>', LINE + ' stroke="#f3c56b" stroke-width="1.8"'),
+            lua: svgIcon('<path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/>', ' fill="#dfe3f2"'),
+            parcial: svgIcon('<circle cx="8" cy="8" r="3.8" fill="#f3c56b"/><path fill="#e6e9f0" d="' + CLOUD + '"/>'),
+            nuvem: svgIcon('<path fill="#e6e9f0" d="' + CLOUD + '"/>'),
+            nevoa: svgIcon('<path d="M3.5 8h17M5.5 12h13M3.5 16h17M7 20h10"/>', LINE + ' stroke="#dfe3ea" stroke-width="1.8"'),
+            garoa: svgIcon('<path fill="#e6e9f0" d="' + CLOUD_UP + '"/><path d="M8.5 18.5v.5M12.5 18.5v.5M16.5 18.5v.5M10.5 21.5v.5M14.5 21.5v.5"' + LINE + ' stroke="#8fb8e8" stroke-width="2"/>'),
+            chuva: svgIcon('<path fill="#e6e9f0" d="' + CLOUD_UP + '"/><path d="M8.5 17.5l-1 3M12.5 17.5l-1 3M16.5 17.5l-1 3"' + LINE + ' stroke="#8fb8e8" stroke-width="1.9"/>'),
+            tempestade: svgIcon('<path fill="#e6e9f0" d="' + CLOUD_UP + '"/><path fill="#f3c56b" d="M12.8 15.5l-3.3 4.5h2.6l-1.1 3.5 4.2-5.2h-2.7l1.6-2.8z"/>'),
+            neve: svgIcon('<path fill="#e6e9f0" d="' + CLOUD_UP + '"/><path d="M8.5 18v3M7 19.5h3M15.5 18v3M14 19.5h3"' + LINE + ' stroke="#fff" stroke-width="1.6"/>'),
+            sino: svgIcon('<path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15zM10 20a2 2 0 0 0 4 0"/>', LINE + ' stroke="currentColor" stroke-width="2"'),
+            apps: svgIcon('<rect x="4" y="4" width="6.5" height="6.5" rx="3.2"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="3.2"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="3.2"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="3.2"/>', ' fill="#fff"'),
+            ajuste: svgIcon('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>', LINE + ' stroke="#fff" stroke-width="1.8"'),
+            ok: svgIcon('<path d="M5 12.5l4.5 4.5L19 7.5"/>', LINE + ' stroke="#fff" stroke-width="2.4"'),
+            fechar: svgIcon('<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>', LINE + ' stroke="#fff" stroke-width="2.4"'),
+            baixo: svgIcon('<path d="M6 9.5l6 6 6-6"/>', LINE + ' stroke="currentColor" stroke-width="2.4"'),
+            cima: svgIcon('<path d="M6 14.5l6-6 6 6"/>', LINE + ' stroke="currentColor" stroke-width="2.4"')
+        };
+
+        // --- Clock & Date ---
+        var DIAS_PT = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
+        var MESES_PT = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+        var horaEl = byId('hora');
+        var clockShown = '';
+        var dateShown = '';
+
+        function timeText(d) {
+            var h = d.getHours();
+            if (state.clockFormat === '12h') return (h % 12 || 12) + ':' + pad2(d.getMinutes()) + ' ' + (h >= 12 ? 'PM' : 'AM');
+            return pad2(h) + ':' + pad2(d.getMinutes());
+        }
+
+        function dateText(d) {
+            if (currentLang() === 'pt') return DIAS_PT[d.getDay()] + ', ' + d.getDate() + ' de ' + MESES_PT[d.getMonth()];
+            return d.toLocaleDateString(LANG_LOCALES[currentLang()], { weekday: 'long', month: 'long', day: 'numeric' });
+        }
+
+        /** Once a minute: the clock, the date line, the part of the day, the reminder. Each
+         * only touches the DOM when its text changed. */
+        function updateClock() {
+            var now = new Date();
+            var ts = timeText(now);
+            if (ts !== clockShown) {
+                clockShown = ts;
+                horaEl.textContent = ts;
+            }
+            dateShown = dateText(now);
+            applyPeriod(now);
+            renderLinha();
+            renderAviso();
+        }
+
+        // The clock shows no seconds, so it ticks once per minute, on the minute boundary
+        // (+50 ms so the new minute has surely begun), not every second. Stopped while the
+        // page is hidden (onPageHidden) and restarted by onPageShown.
+        var clockTimer = null;
+        var clockDueAt = 0; // wall-clock time of the next minute change
+        function scheduleClock() {
+            clearTimeout(clockTimer);
+            var now = Date.now();
+            clockDueAt = now - now % 60000 + 60000;
+            clockTimer = setTimeout(function() {
+                clockTimer = null;
+                if (document.hidden) return;
+                updateClock();
+                scheduleClock();
+            }, clockDueAt - now + 50);
+        }
+
+        // --- Wallpaper: part of the day ---
+        // Morning from 06:00, afternoon from 11:00, "late afternoon" the 2 h before sunset
+        // (homeserver's clima.por_do_sol, else 19:00), night after it. Checked on the minute
+        // tick; the class only changes at those boundaries.
+        var papelEl = byId('papel');
+        var periodShown = '';
+
+        function sunsetMinutes() {
+            var c = launcher.data && launcher.data.clima;
+            var m = c && /^(\d{1,2}):(\d{2})/.exec(String(c.por_do_sol || ''));
+            return m ? parseInt(m[1], 10) * 60 + parseInt(m[2], 10) : 19 * 60;
+        }
+
+        function periodAt(d) {
+            var min = d.getHours() * 60 + d.getMinutes();
+            var sunset = sunsetMinutes();
+            if (min < 6 * 60 || min >= sunset) return 'noite';
+            if (min < 11 * 60) return 'manha';
+            if (min < sunset - 120) return 'tarde';
+            return 'fim';
+        }
+
+        function applyPeriod(d) {
+            var p = periodAt(d);
+            if (p === periodShown) return;
+            periodShown = p;   // ainda decide sol/lua do ícone do tempo
+            // Fundo fixo no da noite, o mais escuro (pedido 09/11): sem alternar pela hora do dia.
+            papelEl.className = 'papel noite';
+        }
+
+        // --- Date / weather line, corner weather, next reminder ---
+        var CLIMA_MAX_MS = 3 * 60 * 60 * 1000;   // older weather is hidden, not shown stale
+        var AVISO_PASSADO_MS = 30 * 60 * 1000;   // a reminder this far past its time is dropped
+
+        function climaAtual() {
+            var c = launcher.data && launcher.data.clima;
+            if (!c || c.temp == null) return null;
+            var em = Date.parse(c.em || '');
+            if (isNaN(em) || Date.now() - em > CLIMA_MAX_MS) return null;
+            return c;
+        }
+
+        /** Sky icon name: the homeserver's, with sun/moon by the part of the day (sunset). */
+        function climaIconName(c) {
+            var name = String(c.icone || 'nuvem');
+            if (periodShown === 'noite' && name === 'sol') name = 'lua';
+            if (periodShown && periodShown !== 'noite' && name === 'lua') name = 'sol';
+            return ICONS[name] ? name : 'nuvem';
+        }
+
+        function climaIcon(c) {
+            return ICONS[climaIconName(c)];
+        }
+
+        // Big sky icons for the weather block (168x168): sun and moon drawn for that size;
+        // cloud, drizzle, rain, storm, snow, fog reuse the small drawings in the warm cloud color.
+        var ICONS_G = {
+            sol: '<svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="13" fill="#f3c56b"/><g stroke="#f3c56b" stroke-width="3.2" stroke-linecap="round"><path d="M32 6v7M32 51v7M6 32h7M51 32h7M13.6 13.6l5 5M45.4 45.4l5 5M13.6 50.4l5-5M45.4 18.6l5-5"/></g></svg>',
+            lua: '<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M50 38A20 20 0 1 1 26 14a16 16 0 0 0 24 24z" fill="#dfe3f2"/></svg>'
+        };
+        function climaIconG(c) {
+            var name = climaIconName(c);
+            return ICONS_G[name] || ICONS[name].replace(/#e6e9f0/g, '#e9e4dc');
+        }
+
+        /** Big weather block (resting): icon + temperature, sky · max/min, city · sunset. */
+        function climaHtml(c) {
+            if (!c) return '';
+            var d0 = c.dias && c.dias[0];
+            var ceu = String(c.ceu || '');
+            if (d0 && d0.max != null && d0.min != null) ceu += (ceu ? ' · ' : '') + t('max %s° min %s°', d0.max, d0.min);
+            var cid = [];
+            if (c.cidade) cid.push(String(c.cidade));
+            if (c.por_do_sol) cid.push(t('sunset %s', c.por_do_sol));
+            return '<div class="agora">' + climaIconG(c) + '<div class="temp">' + esc(c.temp + '°') + '</div></div>' +
+                (ceu ? '<div class="ceu">' + esc(ceu) + '</div>' : '') +
+                (cid.length ? '<div class="cid">' + esc(cid.join(' · ')) + '</div>' : '');
+        }
+
+        function renderLinha() {
+            var c = climaAtual();
+            // under the clock, only the date: the weather has its own block on the right (pedido 09/11 noite)
+            setHtml(byId('linha'), '<span>' + esc(dateShown) + '</span>');
+            var clima = byId('clima');
+            var g = climaHtml(c);
+            setHtml(clima, g);
+            clima.classList.toggle('oculto', !g);
+            var canto = byId('canto');
+            var k = c ? climaIcon(c) + '<span>' + esc(c.temp + '°' + (c.cidade ? ' · ' + c.cidade : '')) + '</span>' : '';
+            setHtml(canto, k);
+            canto.classList.toggle('oculto', !k);
+        }
+
+        function renderAviso() {
+            var a = launcher.data && launcher.data.aviso;
+            var txt = a && a.texto ? String(a.texto) : '';
+            if (txt && a.quando) {
+                var q = Date.parse(a.quando);
+                if (!isNaN(q) && Date.now() - q > AVISO_PASSADO_MS) txt = '';
+            }
+            var el = byId('aviso');
+            setHtml(el, txt ? ICONS.sino + '<span>' + esc(txt) + '</span>' : '');
+            el.classList.toggle('oculto', !txt);
+        }
+
+        // --- Toast Helper ---
+        var toastEl = byId('toastMsg');
+        function showToast(msg, duration) {
+            toastEl.textContent = msg;
+            toastEl.style.display = 'block';
+            clearTimeout(window._toastTimer);
+            window._toastTimer = setTimeout(function() { toastEl.style.display = 'none'; }, duration || 2400);
+        }
+
+        function applyTextSize() {
+            var root = document.documentElement;
+            root.classList.remove('ts-large');
+            root.classList.remove('ts-xlarge');
+            if (state.textSize === 'large' || state.textSize === 'xlarge') root.classList.add('ts-' + state.textSize);
+        }
+
+        var PLAYER_ID = 'org.webostv.play';
+
+        // --- Apps being updated or installed (LG Content Store, dev installs): their tiles get a
+        // spinner and the progress. The root helper reads appInstallService (the page can't);
+        // polled every 15 s, every 2 s while something installs, every minute when hidden
+        // (whether or not something installs: nobody sees the progress then, and onPageShown
+        // polls at once on return).
+        var updatingApps = [];
+        var updatePollTimer = null;
+        function pollUpdatingApps() {
+            clearTimeout(updatePollTimer);
+            if (typeof fetch !== 'function') return;
+            var before = updatingApps.length;
+            fetch(TV_HELPER + '/installing')
+                .then(function(res) { return res.ok ? res.json() : { apps: [] }; })
+                .then(function(d) {
+                    updatingApps = d.apps || [];
+                    showUpdatingApps();
+                    if (before && updatingApps.length < before) discoverTVApps(); // finished: new icon/title
+                }, function() {})
+                .then(function() {
+                    updatePollTimer = setTimeout(pollUpdatingApps, document.hidden ? 60000 : (updatingApps.length ? 2000 : 5000));
+                });
+        }
+        /** Installs in progress: an amber ring on the dock icon (its name then says how far it
+         * got), and the veil with spinner and bar on the All Apps tiles. */
+        function showUpdatingApps() {
+            var byAppId = {};
+            updatingApps.forEach(function(a) { byAppId[a.id] = a; });
+            function statusText(a) {
+                return a.step === 'remove' ? t('Removing')
+                    : (a.progress != null ? t('Updating %s%', a.progress) : t('Updating…'));
+            }
+            // pill under the clock: every app installing now, in the dock or not (pedido 09/11)
+            var box = byId('instalando');
+            var lista = updatingApps.slice(0, 2);
+            var chave = lista.map(function(a) { return a.id; }).join('|');
+            if (box._chave !== chave) {   // rebuilt only when the set changes: the spinner keeps turning
+                box._chave = chave;
+                box.innerHTML = lista.map(function() {
+                    return '<div class="it"><span class="gira"></span><span class="tx"></span><span class="pb"><i></i></span></div>';
+                }).join('');
+            }
+            toArray(box.children).forEach(function(el, i) {
+                var a = lista[i];
+                var c = arrFind(state.catalog, function(x) { return x.id === a.id; });
+                var tx = ((c && c.title) || a.title || a.id) + ' · ' + statusText(a);
+                var txEl = el.querySelector('.tx');
+                if (txEl.textContent !== tx) txEl.textContent = tx;
+                var pb = el.querySelector('.pb');
+                pb.style.display = a.progress != null ? '' : 'none';
+                pb.firstChild.style.width = Math.max(0, Math.min(100, a.progress || 0)) + '%';
+            });
+            box.classList.toggle('oculto', !lista.length);
+            toArray(trilhoEl.children).forEach(function(el) {
+                var a = byAppId[el.dataset.id];
+                var ring = el.querySelector('.anel');
+                var nome = el.querySelector('.nome');
+                if (!a) {
+                    if (ring) el.removeChild(ring);
+                    if (nome && nome.textContent !== el._title) nome.textContent = el._title;
+                    return;
+                }
+                if (!ring) {
+                    ring = document.createElement('span');
+                    ring.className = 'anel';
+                    el.appendChild(ring);
+                }
+                var text = el._title + ' · ' + statusText(a);
+                if (nome && nome.textContent !== text) nome.textContent = text;
+            });
+            toArray(document.querySelectorAll('.all-app-tile')).forEach(function(tile) {
+                var a = byAppId[tile.dataset.id];
+                var veil = tile.querySelector('.update-veil');
+                tile.classList.toggle('updating', !!a);
+                if (!a) {
+                    if (veil) veil.parentNode.removeChild(veil);
+                    return;
+                }
+                if (!veil) {
+                    veil = document.createElement('div');
+                    veil.className = 'update-veil';
+                    veil.appendChild(document.createElement('div')).className = 'update-spin';
+                    veil.appendChild(document.createElement('div')).className = 'update-text';
+                    var bar = veil.appendChild(document.createElement('div'));
+                    bar.className = 'update-bar';
+                    bar.appendChild(document.createElement('div'));
+                    tile.appendChild(veil);
+                }
+                veil.querySelector('.update-text').textContent = statusText(a);
+                var fill = veil.querySelector('.update-bar div');
+                fill.parentNode.style.visibility = a.progress != null ? 'visible' : 'hidden';
+                fill.style.width = (a.progress || 0) + '%';
+            });
+        }
+
+        // --- Apps open in the background (white dot under the dock icon) ---
+        // Read from the helper on boot, on every return to Home and after the Running Apps
+        // list closes something: nothing else changes it while the Home is in front.
+        var runningIds = {};
+        function setRunning(list) {
+            var map = {};
+            (list || []).forEach(function(a) { if (a && a.id) map[a.id] = 1; });
+            runningIds = map;
+            showRunningDots();
+        }
+        function refreshRunning() {
+            if (typeof fetch !== 'function') return;
+            fetch(TV_HELPER + '/running')
+                .then(function(res) { return res.json(); })
+                .then(function(data) { setRunning(data && data.running); }, function() {});
+        }
+        function showRunningDots() {
+            toArray(trilhoEl.children).forEach(function(el) {
+                var id = el.dataset.id;
+                var on = !!(id && runningIds[id]);
+                var dot = el.querySelector('.on');
+                if (on && !dot) {
+                    dot = document.createElement('span');
+                    dot.className = 'on';
+                    el.appendChild(dot);
+                } else if (!on && dot) {
+                    el.removeChild(dot);
+                }
+            });
+        }
+
+        // --- Discover Installed Apps from LG webOS ---
+        // installedIds (optional, from the root helper): every app id on the TV. When given,
+        // catalog entries for apps this TV doesn't have are dropped, so the shelf and All
+        // Apps only show what is really installed (the defaults mirror the first TV).
+        function addLaunchPoints(launchPoints, installedIds) {
+            if (installedIds && installedIds.length) {
+                var installed = {};
+                installedIds.forEach(function(id) { installed[id] = 1; });
+                launchPoints.forEach(function(lp) { installed[lp.appId || lp.id] = 1; });
+                state.catalog = state.catalog.filter(function(c) { return installed[c.id]; });
+            }
+            launchPoints.forEach(function(lp) {
+                var appId = lp.appId || lp.id;
+                if (!appId) return;
+                var exists = arrFind(state.catalog, function(c) { return c.id === appId; });
+                if (exists && lp.iconColor) exists.iconBg = lp.iconColor;
+                if (lp.systemApp && !exists) return;
+                if (!exists) {
+                    state.catalog.push({
+                        id: appId,
+                        title: lp.title || lp.id,
+                        tag: 'Installed App',
+                        desc: lp.appDescription || ('Launch ' + (lp.title || lp.id) + ' natively on your LG TV.'),
+                        color: lp.iconColor || '#0a84ff',
+                        badge: (lp.title || 'APP').substring(0, 3).toUpperCase(),
+                        iconBg: lp.iconColor,
+                        bg: 'linear-gradient(135deg, ' + (lp.iconColor || '#2a344a') + ', #101420)'
+                    });
+                }
+            });
+            renderAppsShelf();
+        }
+
+        // The root helper answers for every app id (the Home is denied listLaunchPoints on
+        // webOS 10); without it, fall back to Luna and then to the SSAP socket.
+        // Also runs on every return to Home, on opening All Apps and twice after boot (an app
+        // installed while another app was in front never showed up, and right after the
+        // boot-time sam restart the list can come back short): the shelf is only rebuilt
+        // when the list actually changed, then onChange runs. helperOnly skips the
+        // fallbacks (the SSAP one can raise a pairing prompt).
+        var appsSeen = '';
+        function discoverTVApps(helperOnly, onChange) {
+            if (typeof fetch !== 'function') { if (!helperOnly) discoverViaLuna(); return; }
+            fetch(TV_HELPER + '/apps')
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                    if (!data || !Array.isArray(data.launchPoints)) throw new Error('no apps');
+                    var seen = data.launchPoints.map(function(lp) {
+                        return (lp.appId || lp.id) + '|' + lp.title + '|' + lp.icon;
+                    }).join(',') + '#' + (data.installed || []).join(',');
+                    if (seen === appsSeen) return;
+                    appsSeen = seen;
+                    addLaunchPoints(data.launchPoints, data.installed);
+                    if (onChange) onChange();
+                })
+                .catch(function() { if (!helperOnly) discoverViaLuna(); });
+        }
+
+        function discoverViaLuna() {
+            if (!window.webOS || !window.webOS.service) return;
+            try {
+                webOS.service.request("luna://com.webos.applicationManager", {
+                    method: "listLaunchPoints",
+                    parameters: {},
+                    onSuccess: function(res) {
+                        if (res && Array.isArray(res.launchPoints)) addLaunchPoints(res.launchPoints);
+                    },
+                    // Newer webOS (seen on SDK 10.x) denies listLaunchPoints to Dev Mode apps.
+                    onFailure: function() { discoverViaSSAP(0); }
+                });
+            } catch (e) {}
+        }
+
+        // The TV's own remote-control socket still lists installed apps once the
+        // viewer accepts a one-time on-screen pairing prompt. The client key it
+        // returns is kept so later launches skip the prompt. Right after an app
+        // (re)launch the socket sometimes drops or ignores the connection, so a failed
+        // attempt is retried; a shown prompt or a refusal is never retried.
+        var SSAP_RETRY_MS = [2000, 5000, 15000];
+        function discoverViaSSAP(attempt) {
+            attempt = attempt || 0;
+            var ws, timer;
+            var settled = false;
+            var prompted = false;
+            function finish(retry) {
+                if (settled) return;
+                settled = true;
+                clearTimeout(timer);
+                try { ws.close(); } catch (e) {}
+                if (retry && attempt < SSAP_RETRY_MS.length) {
+                    setTimeout(function() { discoverViaSSAP(attempt + 1); }, SSAP_RETRY_MS[attempt]);
+                }
+            }
+            function waitForReply() {
+                clearTimeout(timer);
+                timer = setTimeout(function() { finish(true); }, 8000);
+            }
+            try { ws = new WebSocket('ws://127.0.0.1:3000'); } catch (e) { finish(true); return; }
+            var clientKey = null;
+            try { clientKey = localStorage.getItem('fmtv_ssap_key'); } catch (e) {}
+            waitForReply();
+            ws.onopen = function() {
+                var payload = {
+                    pairingType: 'PROMPT',
+                    manifest: { manifestVersion: 1, appVersion: '1.0', permissions: ['READ_INSTALLED_APPS'] }
+                };
+                if (clientKey) payload['client-key'] = clientKey;
+                ws.send(JSON.stringify({ id: 'register', type: 'register', payload: payload }));
+            };
+            // Also fires after a connection error.
+            ws.onclose = function() { finish(!prompted); };
+            ws.onmessage = function(ev) {
+                var msg;
+                try { msg = JSON.parse(ev.data); } catch (e) { return; }
+                if (msg.id === 'register') {
+                    if (msg.type === 'response' && msg.payload && msg.payload.pairingType === 'PROMPT') {
+                        // Waiting for the viewer: no timeout, and no retry that would prompt again.
+                        prompted = true;
+                        clearTimeout(timer);
+                        showToast(t('Accept the request on screen so Free My TV can list your installed apps.'), 15000);
+                    } else if (msg.type === 'registered') {
+                        try { localStorage.setItem('fmtv_ssap_key', msg.payload['client-key']); } catch (e) {}
+                        ws.send(JSON.stringify({ id: 'apps', type: 'request', uri: 'ssap://com.webos.applicationManager/listLaunchPoints' }));
+                        waitForReply();
+                    } else if (msg.type === 'error') {
+                        finish(false);
+                    }
+                } else if (msg.id === 'apps') {
+                    if (msg.payload && Array.isArray(msg.payload.launchPoints)) addLaunchPoints(msg.payload.launchPoints);
+                    finish(false);
+                }
+            };
+        }
+
+        // --- Native webOS App Launch ---
+        var shelfEdit = null;
+        var movingTileId = null;
+        var pendingLaunch = null;
+        // Deep links: only targets of this shape may reach the Luna launch call (the legacy
+        // fallback below also interpolates them into a shell command). Today that's WebOS TV
+        // Player's "abrir?titulo=..." requests (openInPlayer); plain https URLs pass too.
+        // No quotes, backslashes or shell metacharacters, since the Homebrew fallback puts
+        // the launch JSON inside a single-quoted shell argument.
+        var DEEP_LINK_RE = /^[A-Za-z0-9 :\/?&=%._~+#,-]{1,600}$/;
+
+        function launchApp(appId, contentTarget) {
+            var launchParams = { id: appId };
+            if (contentTarget && DEEP_LINK_RE.test(contentTarget)) {
+                launchParams.params = { contentTarget: contentTarget };
+            }
+            else contentTarget = '';
+            if (shelfEdit || pendingLaunch) return; // Ignore repeated remote presses while a request is pending.
+            var app = arrFind(state.catalog, function(item) { return item.id === appId; });
+            var title = app ? (devicePreset(app, state.hdmiDevices).title || app.title) : appId;
+            if (!window.webOS || !window.webOS.service || typeof window.webOS.service.request !== 'function') {
+                showToast(t('Open %s on your LG TV. Launching is unavailable in this preview.', title), 5000);
+                return;
+            }
+            var request = { timer: null };
+            pendingLaunch = request;
+            var tiles = toArray(document.querySelectorAll('.doca-app')).filter(function(tile) { return tile.dataset.id === appId; });
+            tiles.forEach(function(tile) { tile.setAttribute('aria-busy', 'true'); });
+            function finish(message) {
+                if (pendingLaunch !== request) return;
+                clearTimeout(request.timer);
+                pendingLaunch = null;
+                tiles.forEach(function(tile) { tile.removeAttribute('aria-busy'); });
+                showToast(message, 5000);
+            }
+            function failure(error) {
+                var detail = error && error.errorText || '';
+                if (/not installed|not found|does not exist|unknown app/i.test(detail)) {
+                    finish(t('%s is not installed or is unavailable on this TV.', title));
+                } else {
+                    finish(t('Could not open %s. Check that it is installed, then try again.', title));
+                }
+            }
+            // The root helper launches first: as LG's Home on webOS 4.x the page's own launch
+            // call is refused without any reply. Without the helper, the page's Luna call,
+            // then the Homebrew Channel exec.
+            function viaHelper() {
+                if (typeof fetch !== 'function') { viaLuna(); return; }
+                fetch(TV_HELPER + '/launch?id=' + encodeURIComponent(appId) +
+                        (contentTarget ? '&target=' + encodeURIComponent(contentTarget) : ''))
+                    .then(function(res) {
+                        // An older helper without /launch answers 404: use the other routes.
+                        if (!res.ok) throw new Error('helper ' + res.status);
+                        return res.json();
+                    })
+                    .then(function(reply) {
+                        if (pendingLaunch !== request) return;
+                        if (reply && reply.returnValue === true) finish(t('Opening %s…', title));
+                        else if (reply && reply.returnValue === false) failure(reply);
+                        else viaLuna();
+                    })
+                    .catch(viaLuna);
+            }
+            function viaLuna() {
+                if (pendingLaunch !== request) return;
+                try {
+                    webOS.service.request('luna://com.webos.applicationManager', {
+                        method: 'launch',
+                        parameters: launchParams,
+                        onSuccess: function(result) {
+                            if (pendingLaunch !== request) return;
+                            if (result && result.returnValue === false) fallback(result);
+                            else finish(t('Opening %s…', title));
+                        },
+                        onFailure: fallback
+                    });
+                } catch (e) { failure(e); }
+            }
+            function fallback(originalError) {
+                if (pendingLaunch !== request) return;
+                // Only known app-ID characters may enter the legacy shell-based fallback.
+                if (!/^[a-zA-Z0-9._-]+$/.test(appId)) { failure(originalError); return; }
+                try {
+                    webOS.service.request('luna://org.webosbrew.hbchannel.service', {
+                        method: 'exec',
+                        parameters: { command: "luna-send-pub -n 1 luna://com.webos.applicationManager/launch '" + JSON.stringify(launchParams) + "'" },
+                        onSuccess: function(result) {
+                            // Successful exec alone does not confirm that the destination opened.
+                            if (pendingLaunch !== request) return;
+                            var reply = null;
+                            try { reply = JSON.parse(result && result.stdout || ''); } catch (e) {}
+                            if (reply && reply.returnValue === true) finish(t('Opening %s…', title));
+                            else if (reply && reply.returnValue === false) failure(reply);
+                            else finish(t('Could not confirm %s opened. Please try again.', title));
+                        },
+                        onFailure: function() { failure(originalError); }
+                    });
+                } catch (e) { failure(originalError); }
+            }
+            showToast(t('Opening %s…', title), 8000);
+            request.timer = setTimeout(function() {
+                finish(t('No response opening %s. Please try again.', title));
+            }, 8000);
+            viaHelper();
+        }
+
+        // --- Homeserver: everything the Home shows besides the apps, in one call ---
+        // GET <base>/api/play/launcher?v=<last v>&fundo=&poster= answers {v, destaque, continuar,
+        // jogos, recomendados, top_brasil, aviso, clima}, or {v, igual:true} when nothing changed.
+        // Asked on boot, on every return to Home and once a minute while the Home is in front.
+        // The last full answer is kept in localStorage: with the homeserver down the Home shows
+        // that copy (and says so); with no copy at all, only the clock and the dock. Apps, the
+        // clock, Customize and All apps never depend on it.
+        var HS_PATH = '/api/play/launcher';
+        var HS_DEFAULTS = ['http://homeserver:8080', 'http://192.168.1.10:8080'];
+        var HS_KEY = 'fmtv_homeserver';         // last base that answered
+        var LAUNCHER_KEY = 'fmtv_launcher';     // last full answer {base, at, d}
+        var HS_TIMEOUT_MS = 6000;
+        var LAUNCHER_REFRESH_MS = 60 * 1000;
+        // Card art is 400x225 (424 wide in focus) on both TVs: w780 is already 2x that, and
+        // w1280 would decode almost 3x the pixels per card for nothing. Posters aren't shown.
+        var IMG_FUNDO = 'w780';
+        var IMG_POSTER = OLD_ENGINE ? 'w185' : 'w342';
+        var IMG_PATH_RE = /^\/api\/play\/img\/[^\s"'()\\]+$/;
+        var URL_RE = /^https?:\/\/[^\s"'()\\]+$/;
+
+        var launcher = { data: null, base: '', online: null, fetching: false };
+
+        /** Bases to try, in order: the last one that answered, FMTV_HOMESERVER (defaults.js,
+         * a string or a list), then the defaults. */
+        function hsCandidates() {
+            var list = [];
+            function add(b) {
+                if (typeof b !== 'string') return;
+                b = b.replace(/\/+$/, '');
+                if (URL_RE.test(b) && list.indexOf(b) === -1) list.push(b);
+            }
+            try { add(localStorage.getItem(HS_KEY)); } catch (e) {}
+            var forced = window.FMTV_HOMESERVER;
+            if (forced && typeof forced.forEach === 'function') forced.forEach(add);
+            else add(forced);
+            HS_DEFAULTS.forEach(add);
+            return list;
+        }
+
+        /** fetch + JSON with a timeout (no AbortController before Chromium 66: a late answer
+         * is just ignored). */
+        function fetchJSON(url, ms) {
+            return new Promise(function(resolve, reject) {
+                var settled = false;
+                var timer = setTimeout(function() {
+                    settled = true;
+                    reject(new Error('timeout'));
+                }, ms);
+                fetch(url)
+                    .then(function(res) {
+                        if (!res.ok) throw new Error('http ' + res.status);
+                        return res.json();
+                    })
+                    .then(function(d) {
+                        if (settled) return;
+                        settled = true;
+                        clearTimeout(timer);
+                        resolve(d);
+                    }, function(err) {
+                        if (settled) return;
+                        settled = true;
+                        clearTimeout(timer);
+                        reject(err);
+                    });
+            });
+        }
+
+        function loadCachedLauncher() {
+            try {
+                var saved = JSON.parse(localStorage.getItem(LAUNCHER_KEY) || 'null');
+                if (saved && saved.d && saved.d.v) {
+                    launcher.data = saved.d;
+                    launcher.base = saved.base || '';
+                }
+            } catch (e) {}
+        }
+
+        function setOnline(on) {
+            launcher.online = on;
+            tvEl.classList.toggle('semserv', !on && !!launcher.data);
+        }
+
+        function refreshLauncher() {
+            if (launcher.fetching || typeof fetch !== 'function') return;
+            launcher.fetching = true;
+            var bases = hsCandidates();
+            var v = launcher.data ? launcher.data.v : '';
+            var i = 0;
+            function next() {
+                if (i >= bases.length) {
+                    launcher.fetching = false;
+                    setOnline(false);
+                    return;
+                }
+                var base = bases[i++];
+                var url = base + HS_PATH + '?v=' + encodeURIComponent(v || '') + '&fundo=' + IMG_FUNDO + '&poster=' + IMG_POSTER;
+                fetchJSON(url, HS_TIMEOUT_MS)
+                    .then(function(d) {
+                        if (!d || typeof d !== 'object' || !d.v || (d.igual && !launcher.data)) throw new Error('bad answer');
+                        launcher.fetching = false;
+                        var baseChanged = base !== launcher.base;
+                        launcher.base = base;
+                        try { localStorage.setItem(HS_KEY, base); } catch (e) {}
+                        if (!d.igual) {
+                            launcher.data = d;
+                            try { localStorage.setItem(LAUNCHER_KEY, JSON.stringify({ base: base, at: Date.now(), d: d })); } catch (e) {}
+                        }
+                        setOnline(true);
+                        if (!d.igual || baseChanged) renderLauncherData();
+                    })
+                    .catch(next);
+            }
+            next();
+        }
+
+        var launcherTimer = null;
+        function startLauncherTimer() {
+            clearInterval(launcherTimer);
+            launcherTimer = setInterval(function() {
+                if (!document.hidden) refreshLauncher();
+            }, LAUNCHER_REFRESH_MS);
+        }
+
+        /** Image paths come relative (/api/play/img/...): prefixed with the base that answered. */
+        function imgUrl(path) {
+            path = String(path || '');
+            if (URL_RE.test(path)) return path;
+            if (!IMG_PATH_RE.test(path)) return '';
+            return (launcher.base || hsCandidates()[0] || '') + path;
+        }
+
+        // --- Rows: one on screen at a time, empty ones left out ---
+        var ROW_DEFS = [
+            { key: 'continuar', name: 'Continue' },
+            { key: 'jogos', name: "Today's games" },
+            { key: 'recomendados', name: 'For you' },
+            { key: 'top_brasil', name: 'Top Brazil' }
+        ];
+        var MAX_CARDS = 20;   // Top 20 (pedido 09/11); o servidor já limita cada fileira a 20
+        var rows = [];
+        var rowStamp = 0; // bumped on new data: the row on screen is rebuilt
+
+        function buildRows() {
+            var d = launcher.data;
+            var out = [];
+            if (!d) return out;
+            ROW_DEFS.forEach(function(def) {
+                var list = Array.isArray(d[def.key]) ? d[def.key] : [];
+                var items;
+                if (def.key === 'jogos') {
+                    // Finished games have nothing left to open.
+                    items = list.filter(function(j) { return j && j.status !== 'fim'; }).slice(0, MAX_CARDS - 1);
+                    if (items.length) items.push({ mais: true });
+                } else {
+                    items = list.filter(function(c) { return c && c.id != null; }).slice(0, MAX_CARDS);
+                }
+                if (items.length) out.push({ key: def.key, name: def.name, items: items });
+            });
+            return out;
+        }
+
+        /** Where Down lands: the homeserver's destaque ({fileira, i}) when that row is shown,
+         * else the first row. */
+        function destaqueSpot() {
+            var d = launcher.data && launcher.data.destaque;
+            if (d && d.fileira) {
+                var sec = arrFindIndex(rows, function(r) { return r.key === d.fileira; });
+                if (sec !== -1) {
+                    var src = launcher.data[d.fileira];
+                    var wanted = Array.isArray(src) ? src[d.i || 0] : null;
+                    var item = wanted ? rows[sec].items.indexOf(wanted) : -1;
+                    return { sec: sec, item: item === -1 ? 0 : item };
+                }
+            }
+            return { sec: 0, item: 0 };
+        }
+
+        function renderLauncherData() {
+            var shownKey = nav.modo === 'prat' && rows[nav.sec] ? rows[nav.sec].key : null;
+            rows = buildRows();
+            rowStamp++;
+            applyPeriod(new Date());
+            renderLinha();
+            renderAviso();
+            renderHint();
+            if (nav.modo === 'prat') {
+                if (!rows.length) nav.modo = 'doca';
+                else {
+                    var idx = arrFindIndex(rows, function(r) { return r.key === shownKey; });
+                    nav.sec = idx !== -1 ? idx : Math.min(nav.sec, rows.length - 1);
+                }
+                render();
+            }
+        }
+
+        // --- Screen state ---
+        // modo 'doca' (resting: big clock and the dock) or 'prat' (a content row below).
+        var nav = { modo: 'doca', app: 0, sec: 0, item: 0 };
+        var dockItems = [];
+        var DOCK_STEP = 166;              // 132 icon + 34 margin
+        var DOCK_VIEW = 1920 - 132 - 96;  // visible dock width
+        var CARD_STEP = 430;              // 400 card + 30 margin
+        var dockShift = -1;
+        var faixaShift = -1;
+        var faixaFor = '';                // row (and data stamp) whose cards are in the DOM
+        var focusedDockEl = null;
+        var focusedCardEl = null;
+        var clearFaixaTimer = null;
+
+        function render() {
+            tvEl.classList.toggle('conteudo', nav.modo === 'prat');
+            renderDockFocus();
+            if (nav.modo === 'prat') {
+                clearTimeout(clearFaixaTimer);
+                renderShelf();
+            } else {
+                // Off screen once the row has faded out: drop its cards and their images.
+                clearTimeout(clearFaixaTimer);
+                clearFaixaTimer = setTimeout(clearFaixa, 500);
+            }
+        }
+
+        function clearFaixa() {
+            clearTimeout(clearFaixaTimer);
+            if (nav.modo === 'prat') return;
+            faixaEl.innerHTML = '';
+            faixaEl.style.transform = '';
+            faixaFor = '';
+            faixaShift = -1;
+            focusedCardEl = null;
+            setHtml(byId('info'), '');
+        }
+
+        // --- Dock ---
+        function dockElement(it) {
+            var el = document.createElement('div');
+            el.className = 'doca-app';
+            var ico = document.createElement('div');
+            ico.className = 'doca-ico';
+            var title;
+            if (it.kind === 'app') {
+                var app = it.app;
+                var device = devicePreset(app, state.hdmiDevices);
+                title = device.title || app.title;
+                el.dataset.id = app.id;
+                ico.style.background = app.bg || '#1c2438';
+                if (isHDMI(app)) {
+                    ico.style.background = device.color;
+                    if (device.logo) {
+                        var fallback = document.createElement('span');
+                        fallback.className = 'app-art-fallback';
+                        fallback.textContent = device.title;
+                        ico.appendChild(fallback);
+                        addTileImage(ico, 'assets/brands/' + device.logo + '.svg', true);
+                    } else {
+                        ico.innerHTML = deviceArtwork(device.shape);
+                    }
+                } else {
+                    fillAppIcon(ico, app);
+                }
+            } else {
+                el.className += ' vidro';
+                ico.innerHTML = { all: ICONS.apps, settings: ICONS.ajuste, done: ICONS.ok, cancel: ICONS.fechar }[it.kind];
+                title = t({ all: 'All apps', settings: 'Settings', done: 'Done', cancel: 'Cancel' }[it.kind]);
+            }
+            var nome = document.createElement('span');
+            nome.className = 'nome';
+            nome.textContent = title;
+            el.appendChild(ico);
+            el.appendChild(nome);
+            el._title = title;
+            el.addEventListener('mouseenter', function() {
+                if (modalOpen) return;
+                nav.app = toArray(trilhoEl.children).indexOf(el);
+                nav.modo = 'doca';
+                render();
+            });
+            el.addEventListener('click', function() {
+                if (modalOpen) return;
+                nav.app = toArray(trilhoEl.children).indexOf(el);
+                activateDock(nav.app);
+            });
+            return el;
+        }
+
+        /** Rebuilds the dock (favorites + All apps + Settings; while reordering, + Done + Cancel).
+         * Named as before: app discovery calls it whenever the installed list changes. */
+        function renderAppsShelf() {
+            dockItems = [];
+            (shelfEdit || state.favorites).forEach(function(id) {
+                var app = arrFind(state.catalog, function(c) { return c.id === id; });
+                if (app) dockItems.push({ kind: 'app', app: app });
+            });
+            if (shelfEdit) dockItems.push({ kind: 'done' }, { kind: 'cancel' });
+            else dockItems.push({ kind: 'all' }, { kind: 'settings' });
+            trilhoEl.innerHTML = '';
+            dockItems.forEach(function(it) { trilhoEl.appendChild(dockElement(it)); });
+            nav.app = Math.max(0, Math.min(nav.app, dockItems.length - 1));
+            focusedDockEl = null;
+            dockShift = -1;
+            showUpdatingApps();
+            showRunningDots();
+            renderDockFocus();
+            renderHint();
+        }
+
+        function renderDockFocus() {
+            var els = trilhoEl.children;
+            var el = nav.modo === 'doca' ? els[nav.app] || null : null;
+            if (focusedDockEl !== el) {
+                if (focusedDockEl) focusedDockEl.classList.remove('foco');
+                if (el) el.classList.add('foco');
+                focusedDockEl = el;
+            }
+            for (var i = 0; i < els.length; i++) {
+                els[i].classList.toggle('movendo', !!shelfEdit && !!movingTileId && els[i].dataset.id === movingTileId);
+            }
+            if (nav.modo !== 'doca') return;
+            // Keeps the focused icon in view when the dock is wider than the screen.
+            var shift = Math.max(0, nav.app * DOCK_STEP + 132 + 40 - DOCK_VIEW);
+            if (shift !== dockShift) {
+                dockShift = shift;
+                trilhoEl.style.transform = shift ? 'translateX(' + (-shift) + 'px)' : '';
+            }
+        }
+
+        function renderHint() {
+            var el = byId('descer');
+            var h = '';
+            if (shelfEdit) {
+                h = '<span>' + esc(t(movingTileId ? '← / → Move • OK Place • Back Cancel' : 'Select a tile • OK Pick up • Done to save')) + '</span>';
+            } else if (rows.length) {
+                var first = destaqueSpot().sec;
+                var names = rows.map(function(r, i) {
+                    var n = esc(t(r.name));
+                    return i === first ? '<b>' + n + '</b>' : n;
+                });
+                var list = names.length > 1 ? names.slice(0, -1).join(', ') + esc(t(' and ')) + names[names.length - 1] : names[0];
+                h = '<i>' + ICONS.baixo + '</i><span>' + esc(t('Press down for')) + ' ' + list + '</span>';
+            }
+            setHtml(el, h);
+            el.classList.toggle('oculto', !h);
+        }
+
+        // --- Text for cards ---
+        function durText(s) {
+            var m = Math.max(1, Math.round((s || 0) / 60));
+            if (m < 60) return m + ' min';
+            return Math.floor(m / 60) + ' h' + (m % 60 ? ' ' + (m % 60) + ' min' : '');
+        }
+
+        function agoText(iso) {
+            var at = Date.parse(iso || '');
+            if (isNaN(at)) return '';
+            var min = Math.round((Date.now() - at) / 60000);
+            if (min < 2) return t('just now');
+            if (min < 60) return t('%s min ago', min);
+            var then = new Date(at);
+            var today = new Date();
+            today.setHours(0, 0, 0, 0);
+            var days = Math.round((today.getTime() - new Date(then.getFullYear(), then.getMonth(), then.getDate()).getTime()) / 86400000);
+            if (days <= 0) return t('%s h ago', Math.round(min / 60));
+            if (days === 1) return t('yesterday');
+            return t('%s days ago', days);
+        }
+
+        function whenText(iso) {
+            var at = Date.parse(iso || '');
+            if (isNaN(at)) return '';
+            var d = new Date(at);
+            var hm = pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+            var today = new Date();
+            today.setHours(0, 0, 0, 0);
+            var days = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() - today.getTime()) / 86400000);
+            if (days === 0) return t('today %s', hm);
+            if (days === 1) return t('tomorrow %s', hm);
+            return pad2(d.getDate()) + '/' + pad2(d.getMonth() + 1) + ' ' + hm;
+        }
+
+        function imdbText(n) {
+            if (!n) return '';
+            var s = (Math.round(n * 10) / 10).toFixed(1);
+            return 'IMDb ' + (currentLang() === 'en' ? s : s.replace('.', ','));
+        }
+
+        function kindYear(c) {
+            var k = c.tipo === 's' ? t('Series') : t('Movie');
+            return c.ano ? k + ' · ' + c.ano : k;
+        }
+
+        function episodeText(c) {
+            var p = c.progresso || {};
+            if (c.selo) return String(c.selo);
+            if (p.temporada) return 'T' + p.temporada + ':E' + (p.episodio || 1);
+            return t('Movie');
+        }
+
+        /** Team names as the channel list writes them ("NBA Wizards" vs "Pistons"): a leading
+         * all-caps league tag is moved to `liga` when the homeserver sent none. */
+        function gameTeams(j) {
+            var casa = String((j.casa && j.casa.nome) || '');
+            var fora = String((j.fora && j.fora.nome) || '');
+            var liga = j.liga ? String(j.liga) : '';
+            var m = /^([A-Z]{2,5})\s+(.+)$/.exec(casa);
+            if (!liga && m && fora.indexOf(m[1] + ' ') !== 0) {
+                liga = m[1];
+                casa = m[2];
+            }
+            var mf = liga && fora.indexOf(liga + ' ') === 0;
+            if (mf) fora = fora.slice(liga.length + 1);
+            return { casa: casa, fora: fora, liga: liga };
+        }
+
+        function scoreText(placar) {
+            if (placar == null || placar === '') return '';
+            if (Array.isArray(placar)) return placar.join(' × ');
+            if (typeof placar === 'object') return (placar.casa != null ? placar.casa : '') + ' × ' + (placar.fora != null ? placar.fora : '');
+            return String(placar);
+        }
+
+        function teamColor(name) {
+            var h = 0;
+            for (var i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 360;
+            return 'hsl(' + h + ', 42%, 36%)';
+        }
+
+        function teamBadge(team, name) {
+            var url = imgUrl(team && team.escudo);
+            if (url) return '<i><img src="' + esc(url) + '" alt=""></i>';
+            var sigla = (team && team.sigla) || name.replace(/[^A-Za-zÀ-ÿ0-9]/g, '').slice(0, 3).toUpperCase();
+            return '<i style="background:' + teamColor(name) + '">' + esc(sigla) + '</i>';
+        }
+
+        /** Live: LIVE, score, minute; upcoming: when, and whether the reminder is on. liga (info
+         * line only) goes in between. */
+        function gameStatusHtml(j, liga) {
+            var ligaHtml = liga ? '<span>' + esc(liga) + '</span>' : '';
+            if (j.status === 'agora') {
+                var sc = scoreText(j.placar);
+                return '<span class="vivo">' + esc(t('LIVE')) + '</span>' + (sc ? '<span class="amb">' + esc(sc) + '</span>' : '') +
+                    (j.minuto != null && j.minuto !== '' ? '<span>' + esc(j.minuto + "'") + '</span>' : '') + ligaHtml;
+            }
+            return '<span class="amb">' + esc(whenText(j.inicio)) + '</span>' + ligaHtml + '<span>' + esc(t(j.aviso ? 'reminder on' : 'Remind me')) + '</span>';
+        }
+
+        /** Program on now: 0-100 by the clock (the homeserver sends only start and end). */
+        function programPct(a) {
+            var i = Date.parse((a && a.inicio) || ''), f = Date.parse((a && a.fim) || '');
+            if (isNaN(i) || isNaN(f) || f <= i) return null;
+            return Math.max(0, Math.min(100, Math.round((Date.now() - i) * 100 / (f - i))));
+        }
+
+        function isCanal(it) { return !!it && it.tipo === 'canal'; }
+
+        /** Continue: the last channel watched on Live. Logo centered on a dark card (the
+         * name shows when there's no logo or it can't load), red LIVE badge, program bar. */
+        function canalCardHtml(it) {
+            var url = imgUrl(it.logo);
+            var h = '<div class="card canal' + (url ? ' temlogo' : '') + '"><span class="nm">' + esc(it.nome) + '</span>';
+            if (url) h += '<img class="lg" src="' + esc(url) + '" alt="">';
+            h += '<span class="aov">' + esc(t('LIVE')) + '</span>';
+            var pct = programPct(it.agora);
+            if (pct != null) h += '<span class="pb"><b style="width:' + pct + '%"></b></span>';
+            return h + '</div>';
+        }
+
+        function cardHtml(row, it) {
+            if (it.mais) return '<div class="card mais">' + esc(t('Open Live')) + '</div>';
+            if (row.key === 'continuar' && isCanal(it)) return canalCardHtml(it);
+            if (row.key === 'jogos') {
+                var tm = gameTeams(it);
+                return '<div class="card jogo">' +
+                    '<div class="tm">' + teamBadge(it.casa, tm.casa) + '<span>' + esc(tm.casa) + '</span></div>' +
+                    '<div class="tm">' + teamBadge(it.fora, tm.fora) + '<span>' + esc(tm.fora) + '</span></div>' +
+                    '<div class="st">' + gameStatusHtml(it) + '</div></div>';
+            }
+            // The name sits under the art: it shows when there's no art or it can't load
+            // (homeserver down and the image not in the cache).
+            var url = imgUrl(it.fundo);
+            var h = '<div class="card"><span class="nm">' + esc(it.nome) + '</span>';
+            if (url) h += '<i class="img" style="background-image:url(\'' + esc(url) + '\')"></i>';
+            if (row.key === 'continuar') {
+                var p = it.progresso || {};
+                // selo = o app onde parou (hoje só o Player guarda progresso), não a TV (pedido 09/11)
+                h += '<span class="tvs">' + esc(it.app || 'WebOS TV Player') + '</span>';
+                if (it.episodio_novo) h += '<span class="novo">' + esc(t('NEW EP')) + '</span>';
+                if (p.pct != null) h += '<span class="pb"><b style="width:' + Math.max(0, Math.min(100, Math.round(p.pct))) + '%"></b></span>';
+            }
+            if (row.key === 'top_brasil' && it.posicao) h += '<span class="pos">' + esc(it.posicao) + '</span>';
+            return h + '</div>';
+        }
+
+        function infoHtml(row, it) {
+            var title, meta = [], bar = '', sin = '';
+            if (it.mais) {
+                title = t('Live');
+                meta.push('<span>' + esc(t('Channels, favorites and guide')) + '</span>');
+            } else if (row.key === 'jogos') {
+                var tm = gameTeams(it);
+                title = tm.casa + ' × ' + tm.fora;
+                meta.push(gameStatusHtml(it, tm.liga));
+            } else if (row.key === 'continuar' && isCanal(it)) {
+                var a = it.agora;
+                title = (it.numero != null ? it.numero + ' · ' : '') + it.nome;
+                meta.push('<span class="vivo">' + esc(t('LIVE')) + '</span>');
+                if (a && a.titulo) {
+                    meta.push('<span class="amb">' + esc(a.titulo) + '</span>');
+                    var fim = Date.parse(a.fim || '');
+                    if (!isNaN(fim)) meta.push('<span>' + esc(t('until %s', pad2(new Date(fim).getHours()) + ':' + pad2(new Date(fim).getMinutes()))) + '</span>');
+                    var pc = programPct(a);
+                    if (pc != null) bar = '<div class="pb"><b style="width:' + pc + '%"></b></div>';
+                } else {
+                    meta.push('<span>' + esc(t('Live channel')) + '</span>');
+                }
+            } else if (row.key === 'continuar') {
+                var p = it.progresso || {};
+                title = it.nome;
+                meta.push('<span class="amb">' + esc(episodeText(it)) + '</span>');
+                if (p.proximo) meta.push('<span>' + esc(t('next episode')) + '</span>');
+                else if (p.restante_s) meta.push('<span>' + esc(t('%s left', durText(p.restante_s))) + '</span>');
+                var quando = agoText(p.quando);          // sem o nome da TV (pedido 09/11)
+                if (quando) meta.push('<span>' + esc(quando) + '</span>');
+                if (p.pct != null) bar = '<div class="pb"><b style="width:' + Math.max(0, Math.min(100, Math.round(p.pct))) + '%"></b></div>';
+            } else {
+                title = it.nome;
+                if (row.key === 'top_brasil' && it.posicao) meta.push('<span class="amb">' + esc(t('No. %s today', it.posicao)) + '</span>');
+                var imdb = imdbText(it.imdb);
+                if (imdb) meta.push('<span' + (row.key === 'top_brasil' ? '' : ' class="amb"') + '>' + esc(imdb) + '</span>');
+                meta.push('<span>' + esc(kindYear(it)) + '</span>');
+                // gênero (JustWatch) e sinopse curta, vindos prontos do homeserver
+                if (it.generos && it.generos.length) meta.push('<span>' + esc(it.generos.join(' · ')) + '</span>');
+                if (it.sinopse) sin = '<div class="s">' + esc(it.sinopse) + '</div>';
+            }
+            return '<div class="t">' + esc(title) + '</div><div class="m">' + meta.join('') + '</div>' + bar + sin;
+        }
+
+        function renderShelf() {
+            var row = rows[nav.sec];
+            if (!row) return;
+            nav.item = Math.max(0, Math.min(nav.item, row.items.length - 1));
+            setHtml(byId('secoes'), rows.map(function(r, i) {
+                return '<span data-i="' + i + '"' + (i === nav.sec ? ' class="on"' : '') + '>' + esc(t(r.name)) + '</span>';
+            }).join(''));
+            setHtml(byId('pontos'), rows.map(function(r, i) { return '<b' + (i === nav.sec ? ' class="on"' : '') + '></b>'; }).join('') +
+                (rows.length > 1 ? ICONS.cima + ICONS.baixo + '<span>' + esc(t('switch rows')) + '</span>' : ''));
+            var stamp = row.key + '#' + rowStamp;
+            if (faixaFor !== stamp) {
+                faixaFor = stamp;
+                faixaEl.innerHTML = row.items.map(function(it) { return cardHtml(row, it); }).join('');
+                focusedCardEl = null;
+                // channel logo that can't load: the channel name shows instead
+                toArray(faixaEl.querySelectorAll('img.lg')).forEach(function(im) {
+                    function falhou() { im.style.display = 'none'; if (im.parentNode) im.parentNode.classList.remove('temlogo'); }
+                    if (im.complete && !im.naturalWidth) falhou();
+                    else im.onerror = falhou;
+                });
+            }
+            var el = faixaEl.children[nav.item] || null;
+            if (focusedCardEl !== el) {
+                if (focusedCardEl) focusedCardEl.classList.remove('foco');
+                if (el) el.classList.add('foco');
+                focusedCardEl = el;
+            }
+            setHtml(byId('info'), infoHtml(row, row.items[nav.item]));
+            // Slides the row so the focused card stays in view (no layout read: fixed card width).
+            var x = nav.item * CARD_STEP;
+            var shift = Math.min(x, Math.max(0, x + 400 - (1920 - 264) + 60));
+            if (shift !== faixaShift) {
+                faixaShift = shift;
+                faixaEl.style.transform = shift ? 'translateX(' + (-shift) + 'px)' : '';
+            }
+        }
+
+        function enterShelf() {
+            if (!rows.length) return;
+            var spot = destaqueSpot();
+            nav.modo = 'prat';
+            nav.sec = spot.sec;
+            nav.item = spot.item;
+            render();
+        }
+
+        // Pointer (Magic Remote): hovering a card focuses it, clicking opens it; a click on a
+        // row name switches to it.
+        faixaEl.addEventListener('mousemove', function(e) {
+            if (modalOpen || nav.modo !== 'prat') return;
+            var card = e.target.closest ? e.target.closest('.card') : null;
+            var i = card ? toArray(faixaEl.children).indexOf(card) : -1;
+            if (i !== -1 && i !== nav.item) {
+                nav.item = i;
+                renderShelf();
+            }
+        });
+        faixaEl.addEventListener('click', function(e) {
+            if (modalOpen || nav.modo !== 'prat') return;
+            var card = e.target.closest ? e.target.closest('.card') : null;
+            var i = card ? toArray(faixaEl.children).indexOf(card) : -1;
+            var row = rows[nav.sec];
+            if (i !== -1 && row && row.items[i]) {
+                nav.item = i;
+                openCard(row, row.items[i]);
+            }
+        });
+        byId('secoes').addEventListener('click', function(e) {
+            var i = parseInt(e.target.getAttribute && e.target.getAttribute('data-i'), 10);
+            if (!isNaN(i) && rows[i] && nav.modo === 'prat') {
+                nav.sec = i;
+                nav.item = 0;
+                renderShelf();
+            }
+        });
+
+        // --- OK ---
+        function activateDock(i) {
+            var it = dockItems[i];
+            if (!it) return;
+            if (shelfEdit) {
+                if (it.kind === 'done') finishShelfEdit(true);
+                else if (it.kind === 'cancel') finishShelfEdit(false);
+                else if (it.kind === 'app') {
+                    movingTileId = movingTileId === it.app.id ? null : it.app.id;
+                    renderDockFocus();
+                    renderHint();
+                }
+                return;
+            }
+            if (it.kind === 'all') openAllAppsModal();
+            else if (it.kind === 'settings') openSettingsModal();
+            else if (it.kind === 'app') launchApp(it.app.id);
+        }
+
+        function targetValue(v) {
+            return encodeURIComponent(String(v)).replace(/[!'()*]/g, function(c) {
+                return '%' + c.charCodeAt(0).toString(16).toUpperCase();
+            });
+        }
+
+        /** Opens WebOS TV Player 2.0 at a title, an episode or a channel. Sent as the
+         * contentTarget "abrir?<acao>=<id>&..." (the shape both launch paths here carry: the
+         * helper's /launch?target= and Luna's params.contentTarget), which the Player turns
+         * into its {abrir, id, temporada, episodio} launch request. */
+        function openInPlayer(acao, id, extra) {
+            var parts = [acao + '=' + targetValue(id)];
+            for (var k in extra) {
+                if (Object.prototype.hasOwnProperty.call(extra, k) && extra[k] != null && extra[k] !== '') {
+                    parts.push(k + '=' + targetValue(extra[k]));
+                }
+            }
+            launchApp(PLAYER_ID, 'abrir?' + parts.join('&'));
+        }
+
+        function openCard(row, it) {
+            if (!it) return;
+            if (it.mais) { launchApp(PLAYER_ID); return; }
+            if (row.key === 'jogos') {
+                if (it.canal && it.canal.id != null) openInPlayer('canal', it.canal.id, { nome: it.canal.nome });
+                else launchApp(PLAYER_ID);
+            } else if (row.key === 'continuar' && isCanal(it)) {
+                openInPlayer('canal', it.id, { nome: it.nome });
+            } else if (row.key === 'continuar') {
+                var p = it.progresso || {};
+                openInPlayer('tocar', it.id, { temporada: p.temporada, episodio: p.episodio });
+            } else {
+                openInPlayer('titulo', it.id);
+            }
+        }
+
+        // --- Reordering the dock (started from Customize) ---
+        function startShelfEdit() {
+            shelfEdit = state.favorites.slice();
+            movingTileId = null;
+            nav.modo = 'doca';
+            nav.app = 0;
+            renderAppsShelf();
+            render();
+        }
+
+        /** Swaps the picked app with its neighbor: in shelfEdit (ids of apps not installed
+         * here keep their place), in dockItems and in the DOM (no rebuild, no icon reload). */
+        function moveShelfTile(direction) {
+            var idx = arrFindIndex(dockItems, function(it) { return it.kind === 'app' && it.app.id === movingTileId; });
+            var dest = idx + direction;
+            if (idx < 0 || dest < 0 || dest >= dockItems.length || dockItems[dest].kind !== 'app') return;
+            var a = dockItems[idx];
+            var b = dockItems[dest];
+            dockItems[idx] = b;
+            dockItems[dest] = a;
+            var ia = shelfEdit.indexOf(a.app.id);
+            var ib = shelfEdit.indexOf(b.app.id);
+            shelfEdit[ia] = b.app.id;
+            shelfEdit[ib] = a.app.id;
+            var els = trilhoEl.children;
+            var elA = els[idx];
+            var elB = els[dest];
+            if (direction > 0) trilhoEl.insertBefore(elB, elA);
+            else trilhoEl.insertBefore(elA, elB);
+            nav.app = dest;
+            renderDockFocus();
+        }
+
+        function finishShelfEdit(save) {
+            if (!shelfEdit) return;
+            if (save) {
+                try { localStorage.setItem('fmtv_favorites', JSON.stringify(shelfEdit)); }
+                catch (e) { showToast(t('Could not save the order. Please try again.'), 5000); return; }
+                state.favorites = shelfEdit.slice();
+            }
+            shelfEdit = null;
+            movingTileId = null;
+            nav.app = 0;
+            renderAppsShelf();
+            showToast(t(save ? 'Tile order saved' : 'Reordering cancelled'));
+        }
+
+        // --- Remote keys on the Home itself ---
+        function keyName(e) {
+            var c = e.keyCode;
+            if (e.key === 'ArrowLeft' || c === 37) return 'left';
+            if (e.key === 'ArrowUp' || c === 38) return 'up';
+            if (e.key === 'ArrowRight' || c === 39) return 'right';
+            if (e.key === 'ArrowDown' || c === 40) return 'down';
+            if (e.key === 'Enter' || c === 13) return 'enter';
+            if (c === 461 || c === 27 || e.key === 'Escape' || e.key === 'GoBack') return 'back';
+            return '';
+        }
+
+        function handleMainKey(k) {
+            if (nav.modo === 'doca') {
+                if (shelfEdit && movingTileId) {
+                    if (k === 'left' || k === 'right') moveShelfTile(k === 'left' ? -1 : 1);
+                    else if (k === 'back') finishShelfEdit(false);
+                    else {
+                        movingTileId = null;
+                        renderDockFocus();
+                        renderHint();
+                    }
+                    return;
+                }
+                if (k === 'left' && nav.app > 0) { nav.app--; renderDockFocus(); }
+                else if (k === 'right' && nav.app < dockItems.length - 1) { nav.app++; renderDockFocus(); }
+                else if (k === 'down' && !shelfEdit) enterShelf();
+                else if (k === 'enter') activateDock(nav.app);
+                else if (k === 'back' && shelfEdit) finishShelfEdit(false);
+                return;
+            }
+            var row = rows[nav.sec];
+            if (!row) { nav.modo = 'doca'; render(); return; }
+            if (k === 'left') { if (nav.item > 0) { nav.item--; renderShelf(); } }
+            else if (k === 'right') { if (nav.item < row.items.length - 1) { nav.item++; renderShelf(); } }
+            else if (k === 'down') { if (nav.sec < rows.length - 1) { nav.sec++; nav.item = 0; renderShelf(); } }
+            else if (k === 'up') {
+                if (nav.sec > 0) { nav.sec--; nav.item = 0; renderShelf(); }
+                else { nav.modo = 'doca'; render(); }
+            } else if (k === 'back') { nav.modo = 'doca'; render(); }
+            else if (k === 'enter') openCard(row, row.items[nav.item]);
+        }
+
+        // --- Modals: focus moves among their .modal-nav items ---
+        var modalOpen = false;
+        var activeModalCloser = function() {}; // set by whichever modal is currently open
+        var modalNavItems = [];
+        var modalIndex = 0;
+
+        // Geometric (position-based) focus movement for Up/Down: finds the nearest
+        // nav-item strictly above/below the current one, weighted toward the same
+        // horizontal column. This replaces hand-tuned index arithmetic that broke
+        // every time a row was added/removed (header -> apps -> tabs -> picks).
+        // Geometric row jump shared by the main screen and any modal/drawer: picks the
+        // nearest item in the requested vertical direction by actual screen position,
+        // not by array order, so it works across rows of different lengths (a 4-wide
+        // grid next to a single-row of buttons, say) without hardcoding column counts.
+        function geometricVerticalMove(items, curIdx, dir) {
+            var current = items[curIdx];
+            if (!current) return curIdx;
+            var cur = current.getBoundingClientRect();
+            var curX = cur.left + cur.width / 2;
+            var curY = cur.top + cur.height / 2;
+
+            var candidates = [];
+            items.forEach(function(el, idx) {
+                if (idx === curIdx) return;
+                var r = el.getBoundingClientRect();
+                var x = r.left + r.width / 2;
+                var y = r.top + r.height / 2;
+                var dy = (y - curY) * dir;
+                // Threshold well above the focus hover-lift (tiles/cards shift up to ~6px on
+                // focus via translateY), otherwise that lift alone makes a same-row neighbor
+                // look like it's "below" and Down/Up never leaves the row.
+                if (dy <= 24) return; // must actually be in the requested direction, a full row away
+                candidates.push({ idx: idx, dy: dy, dx: Math.abs(x - curX) });
+            });
+            if (!candidates.length) return curIdx;
+
+            // Snap to the nearest row first (smallest dy), then pick whichever item in
+            // that row is best horizontally aligned. Scoring dy+dx together var a
+            // far-but-aligned row (e.g. a full-width picks grid) outscore a narrow row
+            // sitting right in between (e.g. the Movies/Shows tabs), which skipped it
+            // entirely - rows must win on distance first, alignment only breaks ties.
+            var minDy = Math.min.apply(null, candidates.map(function(c) { return c.dy; }));
+            var nearestRow = candidates.filter(function(c) { return c.dy <= minDy + 40; });
+            nearestRow.sort(function(a, b) { return a.dx - b.dx; });
+
+            return nearestRow[0].idx;
+        }
+
+        function moveModalFocusVertical(dir) {
+            modalIndex = geometricVerticalMove(modalNavItems, modalIndex, dir);
+            setModalFocus(modalNavItems[modalIndex]);
+        }
+
+        // --- Customize (dock apps, HDMI devices, preferences) ---
+        var settingsModal = document.getElementById('settingsModal');
+        var tempFavorites = [];
+        var tempDevices = {};
+
+        function openSettingsModal() {
+            if (shelfEdit) return;
+            modalOpen = true;
+            activeModalCloser = closeSettingsModal;
+            tempFavorites = state.favorites.slice();
+            tempDevices = shallowClone(state.hdmiDevices);
+            renderHDMIOptions();
+            document.getElementById('cfgClockFormat').value = state.clockFormat;
+            document.getElementById('cfgLang').value = state.lang;
+            document.getElementById('cfgTextSize').value = state.textSize;
+
+            renderAppSelectorGrid();
+            settingsModal.classList.add('active');
+            refreshModalNavList(settingsModal);
+        }
+
+        function renderHDMIOptions() {
+            var container = document.getElementById('hdmiOptions');
+            container.innerHTML = '';
+            state.catalog.filter(isHDMI).forEach(function(app) {
+                var button = document.createElement('button');
+                button.className = 'app-toggle-item modal-nav';
+                function updateLabel() {
+                    button.textContent = app.title + ': ' + (devicePreset(app, tempDevices).title || 'HDMI');
+                    button.setAttribute('aria-label', button.textContent + '. Press to change device');
+                }
+                updateLabel();
+                button.addEventListener('click', function() {
+                    var current = DEVICE_PRESETS.indexOf(devicePreset(app, tempDevices));
+                    tempDevices[app.id] = DEVICE_PRESETS[(current + 1) % DEVICE_PRESETS.length].key;
+                    updateLabel();
+                    refreshModalNavList();
+                    setModalFocus(button);
+                });
+                container.appendChild(button);
+            });
+        }
+
+        function closeSettingsModal() {
+            modalOpen = false;
+            settingsModal.classList.remove('active');
+            render();
+        }
+
+        // --- All Apps ---
+        var allAppsModal = document.getElementById('allAppsModal');
+
+        function renderAllAppsGrid() {
+            var container = document.getElementById('allAppsGrid');
+            container.innerHTML = '';
+            state.catalog.forEach(function(app) {
+                var device = devicePreset(app, state.hdmiDevices);
+                var title = device.title || app.title;
+                var tile = document.createElement('button');
+                tile.className = 'all-app-tile modal-nav';
+                tile.dataset.id = app.id;
+                tile.setAttribute('aria-label', title + (device.title ? ' — ' + app.title : ''));
+
+                var iconDiv = document.createElement('div');
+                iconDiv.className = 'app-icon';
+                iconDiv.style.background = app.bg || 'linear-gradient(135deg, #0a84ff, #0040a0)';
+                if (isHDMI(app)) {
+                    iconDiv.style.background = device.color;
+                    if (device.logo) {
+                        var fallback = document.createElement('span');
+                        fallback.className = 'app-art-fallback';
+                        fallback.textContent = device.title;
+                        iconDiv.appendChild(fallback);
+                        addTileImage(iconDiv, 'assets/brands/' + device.logo + '.svg', true);
+                    } else {
+                        iconDiv.innerHTML = deviceArtwork(device.shape);
+                    }
+                } else {
+                    fillAppIcon(iconDiv, app);
+                }
+                tile.appendChild(iconDiv);
+
+                var titleSpan = document.createElement('span');
+                titleSpan.className = 'all-app-title';
+                titleSpan.textContent = title;
+                tile.appendChild(titleSpan);
+
+                tile.addEventListener('click', function() {
+                    launchApp(app.id);
+                    closeAllAppsModal();
+                });
+                container.appendChild(tile);
+            });
+            showUpdatingApps();
+        }
+
+        function openAllAppsModal() {
+            if (shelfEdit) return;
+            modalOpen = true;
+            activeModalCloser = closeAllAppsModal;
+            renderAllAppsGrid();
+            allAppsModal.classList.add('active');
+            refreshModalNavList(allAppsModal);
+            discoverTVApps(true, function() {
+                if (!allAppsModal.classList.contains('active')) return;
+                renderAllAppsGrid();
+                refreshModalNavList(allAppsModal);
+            });
+        }
+
+        function closeAllAppsModal() {
+            modalOpen = false;
+            allAppsModal.classList.remove('active');
+            // Rebuilt on every open anyway: don't keep a tile and icon per installed app
+            // alive in a hidden grid (nor in modalNavItems) between visits.
+            document.getElementById('allAppsGrid').innerHTML = '';
+            modalNavItems = [];
+            render();
+        }
+        document.getElementById('closeAllAppsBtn').addEventListener('click', closeAllAppsModal);
+
+        // --- Running Apps (Exit key / holding Back) ---
+        // As Home, this app replaced LG's own, which used to list background apps on the
+        // Exit key. Listing and closing apps (and the Homebrew Channel's exec) are denied to
+        // this app on the Luna bus, so both go through a small root helper on the TV
+        // (/var/lib/webosbrew/webostv-helper, started at boot, listening on 127.0.0.1 only).
+        var runningModal = document.getElementById('runningModal');
+        // The Home's own ids: com.webos.app.home (webOS 10) or com.webos.app.fullhome (webOS 4.x)
+        var RUNNING_HIDDEN = { 'com.webos.app.home': 1, 'com.webos.app.fullhome': 1, 'org.webos.freemytv': 1 };
+
+        function runningAppIcon(app) {
+            var iconDiv = document.createElement('div');
+            iconDiv.className = 'app-icon';
+            iconDiv.style.background = app.bg || 'linear-gradient(135deg, #0a84ff, #0040a0)';
+            fillAppIcon(iconDiv, app);
+            return iconDiv;
+        }
+
+        // apps: null while loading, 'error', or [{ id, title }] from the helper.
+        function renderRunningApps(apps) {
+            var grid = document.getElementById('runningGrid');
+            var hint = document.getElementById('runningHint');
+            grid.innerHTML = '';
+            if (apps === null) hint.textContent = t('Loading…');
+            else if (apps === 'error') hint.textContent = t('Could not list running apps.');
+            else if (!apps.length) hint.textContent = t('No other apps are running.');
+            else hint.textContent = t('Select an app to close it.');
+            (apps && apps.forEach ? apps : []).forEach(function(running) {
+                var id = running.id;
+                var app = arrFind(state.catalog, function(c) { return c.id === id; }) || { id: id, title: running.title || id };
+                var tile = document.createElement('button');
+                tile.className = 'all-app-tile modal-nav';
+                tile.dataset.id = id;
+                tile.setAttribute('aria-label', app.title);
+                tile.appendChild(runningAppIcon(app));
+                var titleSpan = document.createElement('span');
+                titleSpan.className = 'all-app-title';
+                titleSpan.textContent = app.title;
+                tile.appendChild(titleSpan);
+                tile.addEventListener('click', function() { closeRunningApp(id); });
+                grid.appendChild(tile);
+            });
+            refreshModalNavList(runningModal);
+        }
+
+        function listRunningApps() {
+            fetch(TV_HELPER + '/running')
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                    setRunning(data.running); // the dock's open-app dots
+                    if (!modalOpen || activeModalCloser !== closeRunningApps) return;
+                    renderRunningApps((data.running || []).filter(function(a) {
+                        return a.id && !RUNNING_HIDDEN[a.id];
+                    }));
+                })
+                .catch(function() {
+                    if (modalOpen && activeModalCloser === closeRunningApps) renderRunningApps('error');
+                });
+        }
+
+        function closeRunningApp(id, done) {
+            var after = function() {
+                if (done) { done(); return; }
+                listRunningApps();
+            };
+            fetch(TV_HELPER + '/close?id=' + encodeURIComponent(id)).then(after, after);
+        }
+
+        function closeAllRunningApps() {
+            var ids = toArray(document.querySelectorAll('#runningGrid .all-app-tile')).map(function(tile) { return tile.dataset.id; });
+            var pending = ids.length;
+            if (!pending) return;
+            ids.forEach(function(id) {
+                closeRunningApp(id, function() { if (--pending === 0) listRunningApps(); });
+            });
+        }
+
+        function openRunningApps() {
+            if (shelfEdit || modalOpen) return;
+            modalOpen = true;
+            activeModalCloser = closeRunningApps;
+            renderRunningApps(null);
+            runningModal.classList.add('active');
+            listRunningApps();
+        }
+
+        function closeRunningApps() {
+            modalOpen = false;
+            runningModal.classList.remove('active');
+            render();
+        }
+
+        document.getElementById('closeRunningBtn').addEventListener('click', closeRunningApps);
+        document.getElementById('closeAllRunningBtn').addEventListener('click', closeAllRunningApps);
+
+        function renderAppSelectorGrid() {
+            var container = document.getElementById('appSelectorGrid');
+            container.innerHTML = '';
+
+            state.catalog.forEach(function(app) {
+                var isSelected = tempFavorites.indexOf(app.id) !== -1;
+                var item = document.createElement('div');
+                item.className = 'app-toggle-item modal-nav' + (isSelected ? ' selected' : '');
+                // Installed app titles come from listLaunchPoints, so they are set as text.
+                var titleSpan = document.createElement('span');
+                titleSpan.textContent = app.title;
+                var markSpan = document.createElement('span');
+                markSpan.textContent = isSelected ? '✓' : '+';
+                item.appendChild(titleSpan);
+                item.appendChild(markSpan);
+
+                item.addEventListener('click', function() {
+                    var idx = tempFavorites.indexOf(app.id);
+                    if (idx !== -1) {
+                        if (tempFavorites.length > 1) tempFavorites.splice(idx, 1);
+                    } else {
+                        // No cap: the shelf is a horizontal carousel, not a single row.
+                        tempFavorites.push(app.id);
+                    }
+                    renderAppSelectorGrid();
+                    refreshModalNavList();
+                });
+                container.appendChild(item);
+            });
+        }
+
+        function refreshModalNavList(container) {
+            modalNavItems = toArray((container || settingsModal).querySelectorAll('.modal-nav:not(:disabled)'));
+            modalIndex = Math.min(modalIndex, modalNavItems.length - 1);
+            setModalFocus(modalNavItems[modalIndex]);
+        }
+
+        function setModalFocus(el) {
+            if (!el) return;
+            modalNavItems.forEach(function(i) { i.classList.remove('focused'); });
+            el.classList.add('focused');
+            el.focus();
+            modalIndex = modalNavItems.indexOf(el);
+        }
+
+        document.getElementById('closeModalBtn').addEventListener('click', closeSettingsModal);
+        document.getElementById('reorderShelfBtn').addEventListener('click', function() {
+            closeSettingsModal();
+            startShelfEdit();
+        });
+        document.getElementById('resetDefaultBtn').addEventListener('click', function() {
+            tempFavorites = DEFAULT_FAVORITES.slice();
+            tempDevices = {};
+            renderHDMIOptions();
+            document.getElementById('cfgClockFormat').value = '24h';
+            document.getElementById('cfgLang').value = 'auto';
+            document.getElementById('cfgTextSize').value = 'normal';
+            renderAppSelectorGrid();
+            refreshModalNavList();
+            showToast(t('Defaults restored'));
+        });
+
+        document.getElementById('saveModalBtn').addEventListener('click', function() {
+            state.favorites = tempFavorites.slice();
+            state.hdmiDevices = shallowClone(tempDevices);
+            state.clockFormat = document.getElementById('cfgClockFormat').value;
+            state.lang = document.getElementById('cfgLang').value;
+            state.textSize = document.getElementById('cfgTextSize').value;
+            try {
+                localStorage.setItem('fmtv_hdmi_devices', JSON.stringify(state.hdmiDevices));
+                localStorage.setItem('fmtv_favorites', JSON.stringify(state.favorites));
+                localStorage.setItem('fmtv_clock_format', state.clockFormat);
+                localStorage.setItem('fmtv_lang', state.lang);
+                localStorage.setItem('fmtv_text_size', state.textSize);
+            } catch (e) {}
+
+            applyStaticTranslations();
+            applyTextSize();
+            byId('offlineText').textContent = t('no connection to the homeserver · showing the last copy');
+            clockShown = '';
+            updateClock();
+            renderAppsShelf();
+            rowStamp++; // card text is localized when built
+            renderLauncherData();
+            closeSettingsModal();
+            showToast(t('Saved & Applied!'));
+        });
+
+        // --- Remote Control Key Handler ---
+        document.addEventListener('keydown', function(e) {
+            // The minute timer counts monotonic time, which stands still while the TV sleeps:
+            // after a wake-up it can be up to a minute late. The wall clock tells.
+            if (Date.now() > clockDueAt + 2000) {
+                updateClock();
+                scheduleClock();
+            }
+
+            // Exit key (LG turns a held Back into Exit): Home must never hide on it; show the
+            // running apps instead, like LG's own Home did. Exit again closes that list.
+            if (e.keyCode === 1001 || e.key === 'Exit') {
+                if (modalOpen && activeModalCloser === closeRunningApps) closeRunningApps();
+                else openRunningApps();
+                e.preventDefault();
+                return;
+            }
+
+            var k = keyName(e);
+            if (modalOpen) {
+                if (k === 'back') {
+                    activeModalCloser();
+                    e.preventDefault();
+                } else if (k === 'right' && modalNavItems.length) {
+                    modalIndex = (modalIndex + 1) % modalNavItems.length;
+                    setModalFocus(modalNavItems[modalIndex]);
+                    e.preventDefault();
+                } else if (k === 'left' && modalNavItems.length) {
+                    modalIndex = (modalIndex - 1 + modalNavItems.length) % modalNavItems.length;
+                    setModalFocus(modalNavItems[modalIndex]);
+                    e.preventDefault();
+                } else if (k === 'down') {
+                    moveModalFocusVertical(1);
+                    e.preventDefault();
+                } else if (k === 'up') {
+                    moveModalFocusVertical(-1);
+                    e.preventDefault();
+                } else if (k === 'enter') {
+                    var active = modalNavItems[modalIndex];
+                    if (active && active.tagName !== 'INPUT' && active.tagName !== 'SELECT') {
+                        active.click();
+                        e.preventDefault();
+                    }
+                }
+                return;
+            }
+
+            if (!k) return;
+            e.preventDefault();
+            handleMainKey(k);
+        });
+
+        // --- Hidden behind another app ---
+        // This page never closes: as Home it waits behind every app the user opens, for days.
+        // While hidden: no clock ticks, no homeserver polling, installs polled once a minute,
+        // and the content row (with its decoded images) dropped.
+        var pageShownAt = 0;
+
+        function onPageHidden() {
+            clearTimeout(clockTimer);
+            clockTimer = null;
+            clearInterval(launcherTimer);
+            launcherTimer = null;
+            clearTimeout(updatePollTimer);
+            updatePollTimer = setTimeout(pollUpdatingApps, 60000);
+            if (nav.modo === 'prat') {
+                nav.modo = 'doca';
+                render();
+            }
+            clearFaixa();
+        }
+
+        function onPageShown() {
+            // visibilitychange and webOSRelaunch usually both report the same return to Home.
+            if (Date.now() - pageShownAt < 1000) return;
+            pageShownAt = Date.now();
+            updateClock();
+            scheduleClock();
+            pollUpdatingApps();
+            discoverTVApps(true);
+            refreshRunning();
+            refreshLauncher();
+            startLauncherTimer();
+        }
+
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) onPageHidden();
+            else onPageShown();
+        });
+
+        // --- Relaunch while running (Home key, Back out of another app) ---
+        // Running as com.webos.app.home with handlesRelaunch: true, a launch while this app
+        // is already running (hidden behind another app) only fires webOSRelaunch: webOS
+        // won't raise the window itself, so without this the screen stayed on the other
+        // app or went black. Bring it to the front and land on the first app of the dock.
+        function reopenedAsHome() {
+            if (window.webOSSystem && typeof window.webOSSystem.activate === 'function') window.webOSSystem.activate();
+            else if (window.PalmSystem && typeof window.PalmSystem.activate === 'function') window.PalmSystem.activate();
+            // Also when no visibilitychange came (or comes later): refreshes the homeserver
+            // data, the running apps and the installs.
+            onPageShown();
+            if (shelfEdit) finishShelfEdit(false);
+            if (modalOpen) activeModalCloser();
+            nav.modo = 'doca';
+            nav.app = 0;
+            render();
+        }
+        document.addEventListener('webOSRelaunch', reopenedAsHome);
+
+        // --- Boot Sequence ---
+        document.getElementById('appVersion').textContent = 'WebOS TV v' + APP_VERSION;
+        byId('offlineText').textContent = t('no connection to the homeserver · showing the last copy');
+        applyStaticTranslations();
+        applyTextSize();
+        loadCachedLauncher();      // the last copy first: the screen is complete at once
+        rows = buildRows();
+        updateClock();
+        scheduleClock();
+        renderAppsShelf();
+        renderLauncherData();
+        render();
+        refreshLauncher();
+        startLauncherTimer();
+        discoverTVApps();
+        setTimeout(function() { discoverTVApps(true); }, 20000);
+        setTimeout(function() { discoverTVApps(true); }, 90000);
+        pollUpdatingApps();
+        refreshRunning();
+    </script>
+</body>
+</html>

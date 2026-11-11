@@ -1,0 +1,38 @@
+#!/bin/sh
+# Makes org.webos.freemytv take over com.webos.app.home's slot, RAM-only: nothing on
+# persistent storage is modified. Runs at every boot from Homebrew Channel's init.d
+# (also safe to re-run by hand; it no-ops if already active).
+#
+# Mechanism: copy the installed app into /tmp, rewrite its id to com.webos.app.home
+# (pre-built appinfo.json, no sed-on-the-fly), bind-mount that RAM copy over LG's real
+# Home folder, and bind-mount a second small pre-built appinfo.json (same id, just
+# visible:false) over the original app's own manifest so it doesn't also show twice in
+# the app list. Then restart sam so the app manager re-reads both.
+#
+# Undo: `umount /usr/palm/applications/com.webos.app.home`,
+#       `umount /media/developer/apps/usr/palm/applications/org.webos.freemytv/appinfo.json`,
+#       `systemctl restart sam`, and remove this file from init.d so it doesn't reapply
+#       at the next boot.
+
+SRC=/media/developer/apps/usr/palm/applications/org.webos.freemytv
+DST=/usr/palm/applications/com.webos.app.home
+RAMCOPY=/tmp/freemytv-as-home
+CONF=/var/lib/webosbrew/freemytv-as-home
+
+if [ ! -f "$SRC/index.html" ]; then
+    echo "freemytv-as-home: source app missing, aborting" >&2
+    exit 1
+fi
+
+if ! grep -q " $DST " /proc/mounts; then
+    rm -rf "$RAMCOPY"
+    cp -a "$SRC" "$RAMCOPY"
+    cp "$CONF/home-appinfo.json" "$RAMCOPY/appinfo.json"
+    mount --bind "$RAMCOPY" "$DST"
+fi
+
+if ! grep -q " $SRC/appinfo.json " /proc/mounts; then
+    mount --bind "$CONF/hidden-original-appinfo.json" "$SRC/appinfo.json"
+fi
+
+systemctl restart sam

@@ -1,0 +1,603 @@
+{
+    "p_nfx_m": {
+        "edges": [
+            {
+                "node": {
+                    "id": "tm1604157",
+                    "objectType": "MOVIE",
+                    "content": {
+                        "title": "Instinto Animal",
+                        "originalTitle": "Animals",
+                        "originalReleaseYear": 2026,
+                        "posterUrl": "/poster/355347094/{profile}/animals-2026.{format}",
+                        "externalIds": {
+                            "tmdbId": "1236045",
+                            "imdbId": "tt31049299"
+                        },
+                        "genres": [
+                            {
+                                "shortName": "act"
+                            },
+                            {
+                                "shortName": "crm"
+                            },
+                            {
+                                "shortName": "drm"
+                            },
+                            {
+                                "shortName": "trl"
+                            }
+                        ],
+                        "scoring": {
+                            "imdbScore": 5.7,
+                            "imdbVotes": 34345,
+                            "tomatoMeter": null
+                        },
+                        "interactions": {
+                            "likelistAdditions": 1179,
+                            "dislikelistAdditions": 364
+                        }
+                    }
+                }
+            },
+            {
+                "node": {
+                    "id": "tm2949025",
+                    "objectType": "MOVIE",
+                    "content": {
+                        "title": "Unabomber",
+                        "originalTitle": "UNABOMBER",
+                        "originalReleaseYear": 2026,
+                        "posterUrl": "/poster/354939438/{profile}/unabomber.{format}",
+                        "externalIds": {
+                            "tmdbId": "1492640",
+                            "imdbId": "tt6933238"
+                        },
+                        "genres": [
+                            {
+                                "shortName": "crm"
+                            },
+                            {
+                                "shortName": "drm"
+                            },
+                            {
+                                "shortName": "trl"
+                            }
+                        ],
+                        "scoring": {
+                            "imdbScore": 6.2,
+                            "imdbVotes": 38388,
+                            "tomatoMeter": 24
+                        },
+                        "interactions": {
+                            "likelistAdditions": 1509,
+                            "dislikelistAdditions": 302
+                        }
+                    }
+                }
+            },
+            {
+                "node": {
+                    "id": "tm1641722",
+                    "objectType": "MOVIE",
+                    "content": {
+                        "title": "Hoje Ficamos por Aqui",
+                        "originalTitle": "Lo dejamos acá",
+                        "originalReleaseYear": 2026,
+                        "posterUrl": "/poster/355561781/{profile}/lo-dejamos-aca.{format}",
+                        "externalIds": {
+                            "tmdbId": "1487317",
+                            "imdbId": "tt37027309"
+                        },
+                        "genres": [
+                            {
+                                "shortName": "cmy"
+                            },
+                            {
+                                "shortName": "drm"
+                            }
+                        ],
+                        "scoring": {
+                            "imdbScore": 6.2,
+                            "imdbVotes": 3192,
+                            "tomatoMeter": null
+                        },
+                        "interactions": {
+                            "likelistAdditions": 191,
+                            "dislikelistAdditions": 95
+                        }
+                    }
+                }
+            },
+            {
+                "node": {
+                    "id": "tm1484207",
+                    "objectType": "MOVIE",
+                    "content": {
+                        "title": "A Substância",
+                        "originalTitle": "The Substance",
+                        "originalReleaseYear": 2024,
+                        "posterUrl": "/poster/320860479/{profile}/the-substance.{format}",
+                        "externalIds": {
+                            "tmdbId": "933260",
+                            "imdbId": "tt17526714"
+                        },
+                        "genres": [
+                            {
+                                "shortName": "drm"
+                            },
+                            {
+                                "shortName": "hrr"
+                            },
+                            {
+                                "shortName": "scf"
+                            }
+                        ],
+                        "scoring": {
+                            "imdbScore": 7.2,
+                            "imdbVotes": 475022,
+                            "tomatoMeter": 89
+                        },
+                        "interactions": {
+                            "likelistAdditions": 22462,
+                            "dislikelistAdditions": 5114
+                        }
+                    }
+                }
+            }
+        ]
+    },
+    "p_nfx_s": {
+        "edges": [
+            {
+                "node": {
+                    "id": "ts470797",
+                    "objectType": "SHOW",
+                    "content": {
+                        "title": "Profundo",
+                        "originalTitle": "Below",
+                        "originalReleaseYear": 2026,
+                        "posterUrl": "/poster/355537029/{profile}/below.{format}",
+                        "externalIds": {
+                            "tmdbId": "285322",
+                            "imdbId": "tt35934755"
+                        },
+                        "genres": [
+                            {
+                                "shortName": "drm"
+                            },
+                            {
+                                "shortName": "hrr"
+                            },
+                            {
+                                "shortName": "trl"
+                            }
+                        ],
+                        "scoring": {
+                            "imdbScore": 6.3,
+                            "imdbVotes": 34325,
+                            "tomatoMeter": 87
+                        },
+                        "interactions": {
+                            "likelistAdditions": 1609,
+                            "dislikelistAdditions": 323
+                        }
+                    }
+                }
+            },
+            {
+                "node": {
+                    "id": "ts446696",
+                    "objectType": "SHOW",
+                    "content": {
+                        "title": "A Leste do Paraíso",
+                        "originalTitle": "East of Eden",
+                        "originalReleaseYear": 2026,
+                        "posterUrl": "/poster/356373080/{profile}/east-of-eden.{format}",
+                        "externalIds": {
+                            "tmdbId": "258165",
+                            "imdbId": "tt21097264"
+                        },
+                        "genres": [
+                            {
+                                "shortName": "drm"
+                            }
+                        ],
+                        "scoring": {
+                            "imdbScore": 8,
+                            "imdbVotes": 36967,
+                            "tomatoMeter": 88
+                        },
+                        "interactions": {
+                            "likelistAdditions": 1226,
+                            "dislikelistAdditions": 168
+                        }
+                    }
+                }
+            },
+            {
+                "node": {
+                    "id": "ts296046",
+                    "objectType": "SHOW",
+                    "content": {
+                        "title": "Lupin",
+                        "originalTitle": "Lupin",
+                        "originalReleaseYear": 2021,
+                        "posterUrl": "/poster/242826014/{profile}/lupin.{format}",
+                        "externalIds": {
+                            "tmdbId": "96677",
+                            "imdbId": "tt2531336"
+                        },
+                        "genres": [
+                            {
+                                "shortName": "act"
+                            },
+                            {
+                                "shortName": "crm"
+                            },
+                            {
+                                "shortName": "drm"
+                            },
+                            {
+                                "shortName": "trl"
+                            }
+                        ],
+                        "scoring": {
+                            "imdbScore": 7.5,
+                            "imdbVotes": 165408,
+                            "tomatoMeter": 98
+                        },
+                        "interactions": {
+                            "likelistAdditions": 9629,
+                            "dislikelistAdditions": 840
+                        }
+                    }
+                }
+            },
+            {
+                "node": {
+                    "id": "ts21218",
+                    "objectType": "SHOW",
+                    "content": {
+                        "title": "O Mentalista",
+                        "originalTitle": "The Mentalist",
+                        "originalReleaseYear": 2008,
+                        "posterUrl": "/poster/320894402/{profile}/o-mentalista.{format}",
+                        "externalIds": {
+                            "tmdbId": "5920",
+                            "imdbId": "tt1196946"
+                        },
+                        "genres": [
+                            {
+                                "shortName": "crm"
+                            },
+                            {
+                                "shortName": "drm"
+                            },
+                            {
+                                "shortName": "trl"
+                            }
+                        ],
+                        "scoring": {
+                            "imdbScore": 8.2,
+                            "imdbVotes": 261695,
+                            "tomatoMeter": 81
+                        },
+                        "interactions": {
+                            "likelistAdditions": 8212,
+                            "dislikelistAdditions": 450
+                        }
+                    }
+                }
+            }
+        ]
+    },
+    "p_gop_m": {
+        "edges": [
+            {
+                "node": {
+                    "id": "tm85941",
+                    "objectType": "MOVIE",
+                    "content": {
+                        "title": "Efeito Borboleta",
+                        "originalTitle": "The Butterfly Effect",
+                        "originalReleaseYear": 2004,
+                        "posterUrl": "/poster/307563533/{profile}/efeito-borboleta.{format}",
+                        "externalIds": {
+                            "tmdbId": "1954",
+                            "imdbId": "tt0289879"
+                        },
+                        "genres": [
+                            {
+                                "shortName": "drm"
+                            },
+                            {
+                                "shortName": "trl"
+                            },
+                            {
+                                "shortName": "scf"
+                            }
+                        ],
+                        "scoring": {
+                            "imdbScore": 7.6,
+                            "imdbVotes": 564269,
+                            "tomatoMeter": 35
+                        },
+                        "interactions": {
+                            "likelistAdditions": 7110,
+                            "dislikelistAdditions": 339
+                        }
+                    }
+                }
+            },
+            {
+                "node": {
+                    "id": "tm139729",
+                    "objectType": "MOVIE",
+                    "content": {
+                        "title": "The Revenant: O Renascido",
+                        "originalTitle": "The Revenant",
+                        "originalReleaseYear": 2016,
+                        "posterUrl": "/poster/303406376/{profile}/the-revenant-o-renascido.{format}",
+                        "externalIds": {
+                            "tmdbId": "281957",
+                            "imdbId": "tt1663202"
+                        },
+                        "genres": [
+                            {
+                                "shortName": "act"
+                            },
+                            {
+                                "shortName": "drm"
+                            },
+                            {
+                                "shortName": "wsn"
+                            }
+                        ],
+                        "scoring": {
+                            "imdbScore": 8,
+                            "imdbVotes": 967814,
+                            "tomatoMeter": 78
+                        },
+                        "interactions": {
+                            "likelistAdditions": 12178,
+                            "dislikelistAdditions": 1005
+                        }
+                    }
+                }
+            },
+            {
+                "node": {
+                    "id": "tm150928",
+                    "objectType": "MOVIE",
+                    "content": {
+                        "title": "Vai Seguir-te",
+                        "originalTitle": "It Follows",
+                        "originalReleaseYear": 2015,
+                        "posterUrl": "/poster/22106321/{profile}/corrente-do-mal.{format}",
+                        "externalIds": {
+                            "tmdbId": "270303",
+                            "imdbId": "tt3235888"
+                        },
+                        "genres": [
+                            {
+                                "shortName": "hrr"
+                            },
+                            {
+                                "shortName": "trl"
+                            }
+                        ],
+                        "scoring": {
+                            "imdbScore": 6.8,
+                            "imdbVotes": 307808,
+                            "tomatoMeter": 95
+                        },
+                        "interactions": {
+                            "likelistAdditions": 4740,
+                            "dislikelistAdditions": 627
+                        }
+                    }
+                }
+            },
+            {
+                "node": {
+                    "id": "tm57772",
+                    "objectType": "MOVIE",
+                    "content": {
+                        "title": "Crepúsculo",
+                        "originalTitle": "Twilight",
+                        "originalReleaseYear": 2008,
+                        "posterUrl": "/poster/245448978/{profile}/a-saga-crepusculo-crepusculo.{format}",
+                        "externalIds": {
+                            "tmdbId": "8966",
+                            "imdbId": "tt1099212"
+                        },
+                        "genres": [
+                            {
+                                "shortName": "drm"
+                            },
+                            {
+                                "shortName": "fnt"
+                            },
+                            {
+                                "shortName": "rma"
+                            }
+                        ],
+                        "scoring": {
+                            "imdbScore": 5.4,
+                            "imdbVotes": 538617,
+                            "tomatoMeter": 48
+                        },
+                        "interactions": {
+                            "likelistAdditions": 5952,
+                            "dislikelistAdditions": 2587
+                        }
+                    }
+                }
+            }
+        ]
+    },
+    "p_gop_s": {
+        "edges": [
+            {
+                "node": {
+                    "id": "ts53559",
+                    "objectType": "SHOW",
+                    "content": {
+                        "title": "A História de Uma Serva",
+                        "originalTitle": "The Handmaid's Tale",
+                        "originalReleaseYear": 2017,
+                        "posterUrl": "/poster/245230722/{profile}/the-handmaids-tale.{format}",
+                        "externalIds": {
+                            "tmdbId": "69478",
+                            "imdbId": "tt5834204"
+                        },
+                        "genres": [
+                            {
+                                "shortName": "act"
+                            },
+                            {
+                                "shortName": "drm"
+                            },
+                            {
+                                "shortName": "trl"
+                            },
+                            {
+                                "shortName": "scf"
+                            }
+                        ],
+                        "scoring": {
+                            "imdbScore": 8.3,
+                            "imdbVotes": 307072,
+                            "tomatoMeter": 83
+                        },
+                        "interactions": {
+                            "likelistAdditions": 14375,
+                            "dislikelistAdditions": 1575
+                        }
+                    }
+                }
+            },
+            {
+                "node": {
+                    "id": "ts287292",
+                    "objectType": "SHOW",
+                    "content": {
+                        "title": "From - A Origem do Mal",
+                        "originalTitle": "FROM",
+                        "originalReleaseYear": 2022,
+                        "posterUrl": "/poster/344518661/{profile}/from.{format}",
+                        "externalIds": {
+                            "tmdbId": "124364",
+                            "imdbId": "tt9813792"
+                        },
+                        "genres": [
+                            {
+                                "shortName": "drm"
+                            },
+                            {
+                                "shortName": "fnt"
+                            },
+                            {
+                                "shortName": "hrr"
+                            },
+                            {
+                                "shortName": "trl"
+                            },
+                            {
+                                "shortName": "scf"
+                            }
+                        ],
+                        "scoring": {
+                            "imdbScore": 7.7,
+                            "imdbVotes": 214206,
+                            "tomatoMeter": 96
+                        },
+                        "interactions": {
+                            "likelistAdditions": 26276,
+                            "dislikelistAdditions": 2619
+                        }
+                    }
+                }
+            },
+            {
+                "node": {
+                    "id": "ts81342",
+                    "objectType": "SHOW",
+                    "content": {
+                        "title": "O Novato",
+                        "originalTitle": "The Rookie",
+                        "originalReleaseYear": 2018,
+                        "posterUrl": "/poster/347285049/{profile}/the-rookie.{format}",
+                        "externalIds": {
+                            "tmdbId": "79744",
+                            "imdbId": "tt7587890"
+                        },
+                        "genres": [
+                            {
+                                "shortName": "act"
+                            },
+                            {
+                                "shortName": "cmy"
+                            },
+                            {
+                                "shortName": "crm"
+                            },
+                            {
+                                "shortName": "drm"
+                            }
+                        ],
+                        "scoring": {
+                            "imdbScore": 8,
+                            "imdbVotes": 139540,
+                            "tomatoMeter": null
+                        },
+                        "interactions": {
+                            "likelistAdditions": 20429,
+                            "dislikelistAdditions": 3011
+                        }
+                    }
+                }
+            },
+            {
+                "node": {
+                    "id": "ts247434",
+                    "objectType": "SHOW",
+                    "content": {
+                        "title": "The Chosen - Os Escolhidos",
+                        "originalTitle": "The Chosen",
+                        "originalReleaseYear": 2019,
+                        "posterUrl": "/poster/332256278/{profile}/the-chosen-0.{format}",
+                        "externalIds": {
+                            "tmdbId": "85077",
+                            "imdbId": "tt5622316"
+                        },
+                        "genres": [
+                            {
+                                "shortName": "act"
+                            },
+                            {
+                                "shortName": "drm"
+                            },
+                            {
+                                "shortName": "hst"
+                            },
+                            {
+                                "shortName": "fml"
+                            }
+                        ],
+                        "scoring": {
+                            "imdbScore": 9.1,
+                            "imdbVotes": 71414,
+                            "tomatoMeter": 100
+                        },
+                        "interactions": {
+                            "likelistAdditions": 2441,
+                            "dislikelistAdditions": 600
+                        }
+                    }
+                }
+            }
+        ]
+    }
+}

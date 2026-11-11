@@ -1,0 +1,22 @@
+{
+  "name": "webos-tv-player-2",
+  "version": "2.0.12",
+  "private": true,
+  "description": "WebOS TV Player 2.0 (org.webostv.play) - app da TV que consome o homeserver (contrato play-2.0.md)",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs && node scripts/check-css.mjs && node scripts/check-js.mjs",
+    "check": "node scripts/check-css.mjs && node scripts/check-js.mjs",
+    "mock": "node dev/mock-server.mjs",
+    "media": "node dev/make-media.mjs",
+    "test": "node dev/test-nav.mjs",
+    "shots": "node dev/shots.mjs",
+    "package": "npm run build && node scripts/package.mjs"
+  },
+  "devDependencies": {
+    "@fontsource/inter": "^5.1.1",
+    "acorn": "^8.14.0",
+    "esbuild": "^0.24.2",
+    "puppeteer-core": "^23.11.1"
+  }
+}

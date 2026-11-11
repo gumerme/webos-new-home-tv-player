@@ -1,0 +1,9 @@
+[Unit]
+Description=Backup diario do Postgres da casa
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+# Chamado pelo interpretador: o SELinux não deixa o systemd executar direto um script em /srv (var_t).
+ExecStart=/bin/bash /srv/casa/scripts/backup-postgres.sh

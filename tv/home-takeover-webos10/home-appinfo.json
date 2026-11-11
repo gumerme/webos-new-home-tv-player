@@ -1,0 +1,24 @@
+{
+  "id": "com.webos.app.home",
+  "version": "1.4.0",
+  "vendor": "FreeMyTV",
+  "type": "web",
+  "main": "index.html",
+  "title": "Home",
+  "icon": "assets/icon.png",
+  "largeIcon": "assets/largeIcon.png",
+  "splashBackground": "assets/splash.png",
+  "bgColor": "#000000",
+  "iconColor": "#0a84ff",
+  "resolution": "1920x1080",
+  "handlesRelaunch": true,
+  "handleExitKey": true,
+  "supportQuickStart": true,
+  "visible": false,
+  "disableBackHistoryAPI": true,
+  "requiredPermissions": [
+    "applications",
+    "applications.launcher",
+    "system.notifications"
+  ]
+}

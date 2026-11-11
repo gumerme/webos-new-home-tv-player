@@ -1,0 +1,1343 @@
+{
+    "events": [
+        {
+            "id": "401879243",
+            "date": "2026-11-08T14:00Z",
+            "status": {
+                "clock": 5400,
+                "displayClock": "90'+5'",
+                "period": 2,
+                "type": {
+                    "id": "28",
+                    "name": "STATUS_FULL_TIME",
+                    "state": "post",
+                    "completed": true,
+                    "description": "Full Time",
+                    "detail": "FT",
+                    "shortDetail": "FT"
+                }
+            },
+            "season": {
+                "year": 2026,
+                "type": 14308,
+                "slug": "2026-27-english-premier-league"
+            },
+            "competitions": [
+                {
+                    "altGameNote": "English Premier League",
+                    "competitors": [
+                        {
+                            "homeAway": "home",
+                            "score": "1",
+                            "team": {
+                                "abbreviation": "CRY",
+                                "displayName": "Crystal Palace",
+                                "shortDisplayName": "C Palace",
+                                "name": "Crystal Palace",
+                                "location": "Crystal Palace",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/384.png"
+                            }
+                        },
+                        {
+                            "homeAway": "away",
+                            "score": "3",
+                            "team": {
+                                "abbreviation": "LIV",
+                                "displayName": "Liverpool",
+                                "shortDisplayName": "Liverpool",
+                                "name": "Liverpool",
+                                "location": "Liverpool",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/364.png"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "401879239",
+            "date": "2026-11-08T14:00Z",
+            "status": {
+                "clock": 5400,
+                "displayClock": "90'+7'",
+                "period": 2,
+                "type": {
+                    "id": "28",
+                    "name": "STATUS_FULL_TIME",
+                    "state": "post",
+                    "completed": true,
+                    "description": "Full Time",
+                    "detail": "FT",
+                    "shortDetail": "FT"
+                }
+            },
+            "season": {
+                "year": 2026,
+                "type": 14308,
+                "slug": "2026-27-english-premier-league"
+            },
+            "competitions": [
+                {
+                    "altGameNote": "English Premier League",
+                    "competitors": [
+                        {
+                            "homeAway": "home",
+                            "score": "1",
+                            "team": {
+                                "abbreviation": "SUN",
+                                "displayName": "Sunderland",
+                                "shortDisplayName": "Sunderland",
+                                "name": "Sunderland",
+                                "location": "Sunderland",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/366.png"
+                            }
+                        },
+                        {
+                            "homeAway": "away",
+                            "score": "0",
+                            "team": {
+                                "abbreviation": "CHE",
+                                "displayName": "Chelsea",
+                                "shortDisplayName": "Chelsea",
+                                "name": "Chelsea",
+                                "location": "Chelsea",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/363.png"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "401879240",
+            "date": "2026-11-08T16:30Z",
+            "status": {
+                "clock": 5400,
+                "displayClock": "90'+9'",
+                "period": 2,
+                "type": {
+                    "id": "28",
+                    "name": "STATUS_FULL_TIME",
+                    "state": "post",
+                    "completed": true,
+                    "description": "Full Time",
+                    "detail": "FT",
+                    "shortDetail": "FT"
+                }
+            },
+            "season": {
+                "year": 2026,
+                "type": 14308,
+                "slug": "2026-27-english-premier-league"
+            },
+            "competitions": [
+                {
+                    "altGameNote": "English Premier League",
+                    "competitors": [
+                        {
+                            "homeAway": "home",
+                            "score": "4",
+                            "team": {
+                                "abbreviation": "MAN",
+                                "displayName": "Manchester United",
+                                "shortDisplayName": "Man Utd",
+                                "name": "Manchester United",
+                                "location": "Manchester United",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/360.png"
+                            }
+                        },
+                        {
+                            "homeAway": "away",
+                            "score": "4",
+                            "team": {
+                                "abbreviation": "AVL",
+                                "displayName": "Aston Villa",
+                                "shortDisplayName": "Aston Villa",
+                                "name": "Aston Villa",
+                                "location": "Aston Villa",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/362.png"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "401882814",
+            "date": "2026-11-08T13:00Z",
+            "status": {
+                "clock": 5400,
+                "displayClock": "90'+5'",
+                "period": 2,
+                "type": {
+                    "id": "28",
+                    "name": "STATUS_FULL_TIME",
+                    "state": "post",
+                    "completed": true,
+                    "description": "Full Time",
+                    "detail": "FT",
+                    "shortDetail": "FT"
+                }
+            },
+            "season": {
+                "year": 2026,
+                "type": 14357,
+                "slug": "2026-27-laliga"
+            },
+            "competitions": [
+                {
+                    "altGameNote": "LALIGA",
+                    "competitors": [
+                        {
+                            "homeAway": "home",
+                            "score": "0",
+                            "team": {
+                                "abbreviation": "ELC",
+                                "displayName": "Elche",
+                                "shortDisplayName": "Elche",
+                                "name": "Elche",
+                                "location": "Elche",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/3751.png"
+                            }
+                        },
+                        {
+                            "homeAway": "away",
+                            "score": "2",
+                            "team": {
+                                "abbreviation": "BET",
+                                "displayName": "Real Betis",
+                                "shortDisplayName": "Betis",
+                                "name": "Real Betis",
+                                "location": "Real Betis",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/244.png"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "401882810",
+            "date": "2026-11-08T15:15Z",
+            "status": {
+                "clock": 5400,
+                "displayClock": "90'+4'",
+                "period": 2,
+                "type": {
+                    "id": "28",
+                    "name": "STATUS_FULL_TIME",
+                    "state": "post",
+                    "completed": true,
+                    "description": "Full Time",
+                    "detail": "FT",
+                    "shortDetail": "FT"
+                }
+            },
+            "season": {
+                "year": 2026,
+                "type": 14357,
+                "slug": "2026-27-laliga"
+            },
+            "competitions": [
+                {
+                    "altGameNote": "LALIGA",
+                    "competitors": [
+                        {
+                            "homeAway": "home",
+                            "score": "1",
+                            "team": {
+                                "abbreviation": "RSO",
+                                "displayName": "Real Sociedad",
+                                "shortDisplayName": "Real Sociedad",
+                                "name": "Real Sociedad",
+                                "location": "Real Sociedad",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/89.png"
+                            }
+                        },
+                        {
+                            "homeAway": "away",
+                            "score": "0",
+                            "team": {
+                                "abbreviation": "RAY",
+                                "displayName": "Rayo Vallecano",
+                                "shortDisplayName": "Rayo",
+                                "name": "Rayo Vallecano",
+                                "location": "Rayo Vallecano",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/101.png"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "401882815",
+            "date": "2026-11-08T17:30Z",
+            "status": {
+                "clock": 5400,
+                "displayClock": "90'+3'",
+                "period": 2,
+                "type": {
+                    "id": "28",
+                    "name": "STATUS_FULL_TIME",
+                    "state": "post",
+                    "completed": true,
+                    "description": "Full Time",
+                    "detail": "FT",
+                    "shortDetail": "FT"
+                }
+            },
+            "season": {
+                "year": 2026,
+                "type": 14357,
+                "slug": "2026-27-laliga"
+            },
+            "competitions": [
+                {
+                    "altGameNote": "LALIGA",
+                    "competitors": [
+                        {
+                            "homeAway": "home",
+                            "score": "0",
+                            "team": {
+                                "abbreviation": "CEL",
+                                "displayName": "Celta Vigo",
+                                "shortDisplayName": "Celta Vigo",
+                                "name": "Celta Vigo",
+                                "location": "Celta Vigo",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/85.png"
+                            }
+                        },
+                        {
+                            "homeAway": "away",
+                            "score": "0",
+                            "team": {
+                                "abbreviation": "LEV",
+                                "displayName": "Levante",
+                                "shortDisplayName": "Levante",
+                                "name": "Levante",
+                                "location": "Levante",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/1538.png"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "401882807",
+            "date": "2026-11-08T17:30Z",
+            "status": {
+                "clock": 5400,
+                "displayClock": "90'+3'",
+                "period": 2,
+                "type": {
+                    "id": "28",
+                    "name": "STATUS_FULL_TIME",
+                    "state": "post",
+                    "completed": true,
+                    "description": "Full Time",
+                    "detail": "FT",
+                    "shortDetail": "FT"
+                }
+            },
+            "season": {
+                "year": 2026,
+                "type": 14357,
+                "slug": "2026-27-laliga"
+            },
+            "competitions": [
+                {
+                    "altGameNote": "LALIGA",
+                    "competitors": [
+                        {
+                            "homeAway": "home",
+                            "score": "2",
+                            "team": {
+                                "abbreviation": "VIL",
+                                "displayName": "Villarreal",
+                                "shortDisplayName": "Villarreal",
+                                "name": "Villarreal",
+                                "location": "Villarreal",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/102.png"
+                            }
+                        },
+                        {
+                            "homeAway": "away",
+                            "score": "0",
+                            "team": {
+                                "abbreviation": "GET",
+                                "displayName": "Getafe",
+                                "shortDisplayName": "Getafe",
+                                "name": "Getafe",
+                                "location": "Getafe",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/2922.png"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "401882816",
+            "date": "2026-11-08T20:00Z",
+            "status": {
+                "clock": 0,
+                "displayClock": "0'",
+                "type": {
+                    "id": "1",
+                    "name": "STATUS_SCHEDULED",
+                    "state": "pre",
+                    "completed": false,
+                    "description": "Scheduled",
+                    "detail": "Sun, November 8th at 3:00 PM EST",
+                    "shortDetail": "Scheduled"
+                }
+            },
+            "season": {
+                "year": 2026,
+                "type": 14357,
+                "slug": "2026-27-laliga"
+            },
+            "competitions": [
+                {
+                    "altGameNote": "LALIGA",
+                    "competitors": [
+                        {
+                            "homeAway": "home",
+                            "score": "0",
+                            "team": {
+                                "abbreviation": "ATM",
+                                "displayName": "Atlético Madrid",
+                                "shortDisplayName": "Atlético",
+                                "name": "Atlético Madrid",
+                                "location": "Atlético Madrid",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/1068.png"
+                            }
+                        },
+                        {
+                            "homeAway": "away",
+                            "score": "0",
+                            "team": {
+                                "abbreviation": "BAR",
+                                "displayName": "Barcelona",
+                                "shortDisplayName": "Barcelona",
+                                "name": "Barcelona",
+                                "location": "Barcelona",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/83.png"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "401931108",
+            "date": "2026-11-08T17:15Z",
+            "status": {
+                "clock": 6300,
+                "displayClock": "105'+1'",
+                "period": 3,
+                "type": {
+                    "id": "49",
+                    "name": "STATUS_HALFTIME_ET",
+                    "state": "in",
+                    "completed": false,
+                    "description": "Extra Time Halftime",
+                    "detail": "Extra Time Halftime",
+                    "shortDetail": "ET-HT"
+                }
+            },
+            "season": {
+                "year": 2026,
+                "type": 14600,
+                "slug": "first-round"
+            },
+            "competitions": [
+                {
+                    "altGameNote": "English FA Cup, First Round",
+                    "competitors": [
+                        {
+                            "homeAway": "home",
+                            "score": "1",
+                            "team": {
+                                "abbreviation": "OLD",
+                                "displayName": "Oldham Athletic",
+                                "shortDisplayName": "Oldham",
+                                "name": "Oldham Athletic",
+                                "location": "Oldham Athletic",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/332.png"
+                            }
+                        },
+                        {
+                            "homeAway": "away",
+                            "score": "1",
+                            "team": {
+                                "abbreviation": "SHW",
+                                "displayName": "Sheffield Wednesday",
+                                "shortDisplayName": "Sheffield Wed",
+                                "name": "Sheffield Wednesday",
+                                "location": "Sheffield Wednesday",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/399.png"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "401902870",
+            "date": "2026-11-08T12:00Z",
+            "status": {
+                "clock": 5400,
+                "displayClock": "90'+4'",
+                "period": 2,
+                "type": {
+                    "id": "28",
+                    "name": "STATUS_FULL_TIME",
+                    "state": "post",
+                    "completed": true,
+                    "description": "Full Time",
+                    "detail": "FT",
+                    "shortDetail": "FT"
+                }
+            },
+            "season": {
+                "year": 2026,
+                "type": 14452,
+                "slug": "2026-27-english-womens-super-league"
+            },
+            "competitions": [
+                {
+                    "altGameNote": "Women's Super League",
+                    "competitors": [
+                        {
+                            "homeAway": "home",
+                            "score": "0",
+                            "team": {
+                                "abbreviation": "AVL",
+                                "displayName": "Aston Villa",
+                                "shortDisplayName": "Aston Villa",
+                                "name": "Aston Villa",
+                                "location": "Aston Villa",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/20707.png"
+                            }
+                        },
+                        {
+                            "homeAway": "away",
+                            "score": "1",
+                            "team": {
+                                "abbreviation": "MAN",
+                                "displayName": "Manchester United",
+                                "shortDisplayName": "Man Utd",
+                                "name": "Manchester United",
+                                "location": "Manchester United",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/20061.png"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "401902871",
+            "date": "2026-11-08T12:00Z",
+            "status": {
+                "clock": 5400,
+                "displayClock": "90'+5'",
+                "period": 2,
+                "type": {
+                    "id": "28",
+                    "name": "STATUS_FULL_TIME",
+                    "state": "post",
+                    "completed": true,
+                    "description": "Full Time",
+                    "detail": "FT",
+                    "shortDetail": "FT"
+                }
+            },
+            "season": {
+                "year": 2026,
+                "type": 14452,
+                "slug": "2026-27-english-womens-super-league"
+            },
+            "competitions": [
+                {
+                    "altGameNote": "Women's Super League",
+                    "competitors": [
+                        {
+                            "homeAway": "home",
+                            "score": "1",
+                            "team": {
+                                "abbreviation": "LIV",
+                                "displayName": "Liverpool",
+                                "shortDisplayName": "Liverpool ",
+                                "name": "Liverpool",
+                                "location": "Liverpool",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/19971.png"
+                            }
+                        },
+                        {
+                            "homeAway": "away",
+                            "score": "2",
+                            "team": {
+                                "abbreviation": "ARS",
+                                "displayName": "Arsenal",
+                                "shortDisplayName": "Arsenal",
+                                "name": "Arsenal",
+                                "location": "Arsenal",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/19973.png"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "401902867",
+            "date": "2026-11-08T14:00Z",
+            "status": {
+                "clock": 5400,
+                "displayClock": "90'+7'",
+                "period": 2,
+                "type": {
+                    "id": "28",
+                    "name": "STATUS_FULL_TIME",
+                    "state": "post",
+                    "completed": true,
+                    "description": "Full Time",
+                    "detail": "FT",
+                    "shortDetail": "FT"
+                }
+            },
+            "season": {
+                "year": 2026,
+                "type": 14452,
+                "slug": "2026-27-english-womens-super-league"
+            },
+            "competitions": [
+                {
+                    "altGameNote": "Women's Super League",
+                    "competitors": [
+                        {
+                            "homeAway": "home",
+                            "score": "3",
+                            "team": {
+                                "abbreviation": "CRY",
+                                "displayName": "Crystal Palace",
+                                "shortDisplayName": "C Palace",
+                                "name": "Crystal Palace",
+                                "location": "Crystal Palace",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/21037.png"
+                            }
+                        },
+                        {
+                            "homeAway": "away",
+                            "score": "2",
+                            "team": {
+                                "abbreviation": "CHA",
+                                "displayName": "Charlton Athletic",
+                                "shortDisplayName": "Charlton",
+                                "name": "Charlton Athletic",
+                                "location": "Charlton Athletic",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/21035.png"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "401882462",
+            "date": "2026-11-08T15:00Z",
+            "status": {
+                "clock": 5400,
+                "displayClock": "90'+6'",
+                "period": 2,
+                "type": {
+                    "id": "28",
+                    "name": "STATUS_FULL_TIME",
+                    "state": "post",
+                    "completed": true,
+                    "description": "Full Time",
+                    "detail": "FT",
+                    "shortDetail": "FT"
+                }
+            },
+            "season": {
+                "year": 2026,
+                "type": 14353,
+                "slug": "2026-27-spanish-liga-f"
+            },
+            "competitions": [
+                {
+                    "altGameNote": "Liga F",
+                    "competitors": [
+                        {
+                            "homeAway": "home",
+                            "score": "5",
+                            "team": {
+                                "abbreviation": "BAR",
+                                "displayName": "Barcelona",
+                                "shortDisplayName": "Barcelona",
+                                "name": "Barcelona",
+                                "location": "Barcelona",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/20091.png"
+                            }
+                        },
+                        {
+                            "homeAway": "away",
+                            "score": "1",
+                            "team": {
+                                "abbreviation": "MCF",
+                                "displayName": "Madrid CFF",
+                                "shortDisplayName": "Madrid CFF",
+                                "name": "Madrid CFF",
+                                "location": "Madrid CFF",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/21425.png"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "401860422",
+            "date": "2026-11-08T19:00Z",
+            "status": {
+                "clock": 1800,
+                "displayClock": "30'",
+                "period": 1,
+                "type": {
+                    "id": "25",
+                    "name": "STATUS_FIRST_HALF",
+                    "state": "in",
+                    "completed": false,
+                    "description": "First Half",
+                    "detail": "30'",
+                    "shortDetail": "30'"
+                }
+            },
+            "season": {
+                "year": 2026,
+                "type": 14086,
+                "slug": "2026-brasileiro-serie-b"
+            },
+            "competitions": [
+                {
+                    "altGameNote": "Brazil Serie B",
+                    "competitors": [
+                        {
+                            "homeAway": "home",
+                            "score": "1",
+                            "team": {
+                                "abbreviation": "ACMG",
+                                "displayName": "Athletic",
+                                "shortDisplayName": "Athletic",
+                                "name": "Athletic",
+                                "location": "Athletic",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/20851.png"
+                            }
+                        },
+                        {
+                            "homeAway": "away",
+                            "score": "0",
+                            "team": {
+                                "abbreviation": "AGO",
+                                "displayName": "Atlético Goianiense",
+                                "shortDisplayName": "Atlético-GO",
+                                "name": "Atlético Goianiense",
+                                "location": "Atlético Goianiense",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/10357.png"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "401860430",
+            "date": "2026-11-08T22:15Z",
+            "status": {
+                "clock": 0,
+                "displayClock": "0'",
+                "type": {
+                    "id": "1",
+                    "name": "STATUS_SCHEDULED",
+                    "state": "pre",
+                    "completed": false,
+                    "description": "Scheduled",
+                    "detail": "Sun, November 8th at 5:15 PM EST",
+                    "shortDetail": "Scheduled"
+                }
+            },
+            "season": {
+                "year": 2026,
+                "type": 14086,
+                "slug": "2026-brasileiro-serie-b"
+            },
+            "competitions": [
+                {
+                    "altGameNote": "Brazil Serie B",
+                    "competitors": [
+                        {
+                            "homeAway": "home",
+                            "score": "0",
+                            "team": {
+                                "abbreviation": "CEA",
+                                "displayName": "Ceará",
+                                "shortDisplayName": "Ceará",
+                                "name": "Ceará",
+                                "location": "Ceará",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/9969.png"
+                            }
+                        },
+                        {
+                            "homeAway": "away",
+                            "score": "0",
+                            "team": {
+                                "abbreviation": "AMG",
+                                "displayName": "América Mineiro",
+                                "shortDisplayName": "América-MG",
+                                "name": "América Mineiro",
+                                "location": "América Mineiro",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/6154.png"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "401860428",
+            "date": "2026-11-08T22:15Z",
+            "status": {
+                "clock": 0,
+                "displayClock": "0'",
+                "type": {
+                    "id": "1",
+                    "name": "STATUS_SCHEDULED",
+                    "state": "pre",
+                    "completed": false,
+                    "description": "Scheduled",
+                    "detail": "Sun, November 8th at 5:15 PM EST",
+                    "shortDetail": "Scheduled"
+                }
+            },
+            "season": {
+                "year": 2026,
+                "type": 14086,
+                "slug": "2026-brasileiro-serie-b"
+            },
+            "competitions": [
+                {
+                    "altGameNote": "Brazil Serie B",
+                    "competitors": [
+                        {
+                            "homeAway": "home",
+                            "score": "0",
+                            "team": {
+                                "abbreviation": "GOI",
+                                "displayName": "Goiás",
+                                "shortDisplayName": "Goiás",
+                                "name": "Goiás",
+                                "location": "Goiás",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/3395.png"
+                            }
+                        },
+                        {
+                            "homeAway": "away",
+                            "score": "0",
+                            "team": {
+                                "abbreviation": "PON",
+                                "displayName": "Ponte Preta",
+                                "shortDisplayName": "Ponte Preta",
+                                "name": "Ponte Preta",
+                                "location": "Ponte Preta",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/3459.png"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "401913107",
+            "date": "2026-11-08T20:00Z",
+            "status": {
+                "clock": 0,
+                "displayClock": "0'",
+                "type": {
+                    "id": "1",
+                    "name": "STATUS_SCHEDULED",
+                    "state": "pre",
+                    "completed": false,
+                    "description": "Scheduled",
+                    "detail": "Sun, November 8th at 3:00 PM EST",
+                    "shortDetail": "Scheduled"
+                }
+            },
+            "season": {
+                "year": 2026,
+                "type": 14066,
+                "slug": "semifinals"
+            },
+            "competitions": [
+                {
+                    "altGameNote": "Copa Do Brazil, Semifinals",
+                    "competitors": [
+                        {
+                            "homeAway": "home",
+                            "score": "0",
+                            "team": {
+                                "abbreviation": "VAS",
+                                "displayName": "Vasco da Gama",
+                                "shortDisplayName": "Vasco",
+                                "name": "Vasco da Gama",
+                                "location": "Vasco da Gama",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/3454.png"
+                            }
+                        },
+                        {
+                            "homeAway": "away",
+                            "score": "0",
+                            "team": {
+                                "abbreviation": "PAL",
+                                "displayName": "Palmeiras",
+                                "shortDisplayName": "Palmeiras",
+                                "name": "Palmeiras",
+                                "location": "Palmeiras",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/2029.png"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "401877917",
+            "date": "2026-11-08T20:30Z",
+            "status": {
+                "clock": 0,
+                "displayClock": "0'",
+                "type": {
+                    "id": "1",
+                    "name": "STATUS_SCHEDULED",
+                    "state": "pre",
+                    "completed": false,
+                    "description": "Scheduled",
+                    "detail": "Sun, November 8th at 3:30 PM EST",
+                    "shortDetail": "Scheduled"
+                }
+            },
+            "season": {
+                "year": 2026,
+                "type": 13938,
+                "slug": "clausura"
+            },
+            "competitions": [
+                {
+                    "altGameNote": "Colombian Primera A",
+                    "competitors": [
+                        {
+                            "homeAway": "home",
+                            "score": "0",
+                            "team": {
+                                "abbreviation": "BUC",
+                                "displayName": "Atlético Bucaramanga",
+                                "shortDisplayName": "Bucaramanga",
+                                "name": "Atlético Bucaramanga",
+                                "location": "Atlético Bucaramanga",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/6137.png"
+                            }
+                        },
+                        {
+                            "homeAway": "away",
+                            "score": "0",
+                            "team": {
+                                "abbreviation": "FOR",
+                                "displayName": "Fortaleza CEIF",
+                                "shortDisplayName": "Fortaleza",
+                                "name": "Fortaleza CEIF",
+                                "location": "Fortaleza CEIF",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/4928.png"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "401878029",
+            "date": "2026-11-08T20:30Z",
+            "status": {
+                "clock": 0,
+                "displayClock": "0'",
+                "type": {
+                    "id": "1",
+                    "name": "STATUS_SCHEDULED",
+                    "state": "pre",
+                    "completed": false,
+                    "description": "Scheduled",
+                    "detail": "Sun, November 8th at 3:30 PM EST",
+                    "shortDetail": "Scheduled"
+                }
+            },
+            "season": {
+                "year": 2026,
+                "type": 13938,
+                "slug": "clausura"
+            },
+            "competitions": [
+                {
+                    "altGameNote": "Colombian Primera A",
+                    "competitors": [
+                        {
+                            "homeAway": "home",
+                            "score": "0",
+                            "team": {
+                                "abbreviation": "NAL",
+                                "displayName": "Atlético Nacional",
+                                "shortDisplayName": "Atl. Nacional",
+                                "name": "Atlético Nacional",
+                                "location": "Atlético Nacional",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/5264.png"
+                            }
+                        },
+                        {
+                            "homeAway": "away",
+                            "score": "0",
+                            "team": {
+                                "abbreviation": "CAL",
+                                "displayName": "Once Caldas",
+                                "shortDisplayName": "Once Caldas",
+                                "name": "Once Caldas",
+                                "location": "Once Caldas",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/2919.png"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "401878034",
+            "date": "2026-11-08T20:30Z",
+            "status": {
+                "clock": 0,
+                "displayClock": "0'",
+                "type": {
+                    "id": "1",
+                    "name": "STATUS_SCHEDULED",
+                    "state": "pre",
+                    "completed": false,
+                    "description": "Scheduled",
+                    "detail": "Sun, November 8th at 3:30 PM EST",
+                    "shortDetail": "Scheduled"
+                }
+            },
+            "season": {
+                "year": 2026,
+                "type": 13938,
+                "slug": "clausura"
+            },
+            "competitions": [
+                {
+                    "altGameNote": "Colombian Primera A",
+                    "competitors": [
+                        {
+                            "homeAway": "home",
+                            "score": "0",
+                            "team": {
+                                "abbreviation": "PAS",
+                                "displayName": "Deportivo Pasto",
+                                "shortDisplayName": "Pasto",
+                                "name": "Deportivo Pasto",
+                                "location": "Deportivo Pasto",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/5485.png"
+                            }
+                        },
+                        {
+                            "homeAway": "away",
+                            "score": "0",
+                            "team": {
+                                "abbreviation": "JUN",
+                                "displayName": "Atlético Junior",
+                                "shortDisplayName": "Atl. Junior",
+                                "name": "Atlético Junior",
+                                "location": "Atlético Junior",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/4815.png"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "401877919",
+            "date": "2026-11-08T20:30Z",
+            "status": {
+                "clock": 0,
+                "displayClock": "0'",
+                "type": {
+                    "id": "1",
+                    "name": "STATUS_SCHEDULED",
+                    "state": "pre",
+                    "completed": false,
+                    "description": "Scheduled",
+                    "detail": "Sun, November 8th at 3:30 PM EST",
+                    "shortDetail": "Scheduled"
+                }
+            },
+            "season": {
+                "year": 2026,
+                "type": 13938,
+                "slug": "clausura"
+            },
+            "competitions": [
+                {
+                    "altGameNote": "Colombian Primera A",
+                    "competitors": [
+                        {
+                            "homeAway": "home",
+                            "score": "0",
+                            "team": {
+                                "abbreviation": "PER",
+                                "displayName": "Deportivo Pereira",
+                                "shortDisplayName": "Pereira",
+                                "name": "Deportivo Pereira",
+                                "location": "Deportivo Pereira",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/5486.png"
+                            }
+                        },
+                        {
+                            "homeAway": "away",
+                            "score": "0",
+                            "team": {
+                                "abbreviation": "AME",
+                                "displayName": "América de Cali",
+                                "shortDisplayName": "América Cali",
+                                "name": "América de Cali",
+                                "location": "América de Cali",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/8109.png"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "401878067",
+            "date": "2026-11-08T21:05Z",
+            "status": {
+                "clock": 0,
+                "displayClock": "0'",
+                "type": {
+                    "id": "1",
+                    "name": "STATUS_SCHEDULED",
+                    "state": "pre",
+                    "completed": false,
+                    "description": "Scheduled",
+                    "detail": "Sun, November 8th at 4:05 PM EST",
+                    "shortDetail": "Scheduled"
+                }
+            },
+            "season": {
+                "year": 2026,
+                "type": 13938,
+                "slug": "clausura"
+            },
+            "competitions": [
+                {
+                    "altGameNote": "Colombian Primera A",
+                    "competitors": [
+                        {
+                            "homeAway": "home",
+                            "score": "0",
+                            "team": {
+                                "abbreviation": "COR",
+                                "displayName": "Jaguares de Córdoba",
+                                "shortDisplayName": "Jaguares",
+                                "name": "Jaguares de Córdoba",
+                                "location": "Jaguares de Córdoba",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/10309.png"
+                            }
+                        },
+                        {
+                            "homeAway": "away",
+                            "score": "0",
+                            "team": {
+                                "abbreviation": "BUC",
+                                "displayName": "Atlético Bucaramanga",
+                                "shortDisplayName": "Bucaramanga",
+                                "name": "Atlético Bucaramanga",
+                                "location": "Atlético Bucaramanga",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/6137.png"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "401877908",
+            "date": "2026-11-09T01:45Z",
+            "status": {
+                "clock": 5400,
+                "displayClock": "90'",
+                "period": 2,
+                "type": {
+                    "id": "28",
+                    "name": "STATUS_FULL_TIME",
+                    "state": "post",
+                    "completed": true,
+                    "description": "Full Time",
+                    "detail": "FT",
+                    "shortDetail": "FT"
+                }
+            },
+            "season": {
+                "year": 2026,
+                "type": 13938,
+                "slug": "clausura"
+            },
+            "competitions": [
+                {
+                    "altGameNote": "Colombian Primera A",
+                    "competitors": [
+                        {
+                            "homeAway": "home",
+                            "score": "0",
+                            "team": {
+                                "abbreviation": "AME",
+                                "displayName": "América de Cali",
+                                "shortDisplayName": "América Cali",
+                                "name": "América de Cali",
+                                "location": "América de Cali",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/8109.png"
+                            }
+                        },
+                        {
+                            "homeAway": "away",
+                            "score": "0",
+                            "team": {
+                                "abbreviation": "DCI",
+                                "displayName": "Deportivo Cali",
+                                "shortDisplayName": "Cali",
+                                "name": "Deportivo Cali",
+                                "location": "Deportivo Cali",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/2672.png"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "401921321",
+            "date": "2026-11-08T21:30Z",
+            "status": {
+                "clock": 0,
+                "displayClock": "0'",
+                "type": {
+                    "id": "1",
+                    "name": "STATUS_SCHEDULED",
+                    "state": "pre",
+                    "completed": false,
+                    "description": "Scheduled",
+                    "detail": "Sun, November 8th at 4:30 PM EST",
+                    "shortDetail": "Scheduled"
+                }
+            },
+            "season": {
+                "year": 2026,
+                "type": 14081,
+                "slug": "final-stage"
+            },
+            "competitions": [
+                {
+                    "altGameNote": "LigaPro Ecuador",
+                    "competitors": [
+                        {
+                            "homeAway": "home",
+                            "score": "0",
+                            "team": {
+                                "abbreviation": "BAR",
+                                "displayName": "Barcelona SC",
+                                "shortDisplayName": "Barcelona",
+                                "name": "Barcelona SC",
+                                "location": "Barcelona SC",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/2686.png"
+                            }
+                        },
+                        {
+                            "homeAway": "away",
+                            "score": "0",
+                            "team": {
+                                "abbreviation": "LDU",
+                                "displayName": "Liga de Quito",
+                                "shortDisplayName": "LDU",
+                                "name": "Liga de Quito",
+                                "location": "Liga de Quito",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/4816.png"
+                            }
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "id": "401899771",
+            "date": "2026-11-08T23:00Z",
+            "status": {
+                "clock": 0,
+                "displayClock": "0'",
+                "type": {
+                    "id": "1",
+                    "name": "STATUS_SCHEDULED",
+                    "state": "pre",
+                    "completed": false,
+                    "description": "Scheduled",
+                    "detail": "Sun, November 8th at 6:00 PM EST",
+                    "shortDetail": "Scheduled"
+                }
+            },
+            "season": {
+                "year": 2026,
+                "type": 14435,
+                "slug": "torneo-apertura-2026"
+            },
+            "competitions": [
+                {
+                    "altGameNote": "Salvadoran Primera",
+                    "competitors": [
+                        {
+                            "homeAway": "home",
+                            "score": "0",
+                            "team": {
+                                "abbreviation": "LIM",
+                                "displayName": "CD Municipal Limeño",
+                                "shortDisplayName": "Limeño",
+                                "name": "CD Municipal Limeño",
+                                "location": "CD Municipal Limeño",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/7231.png"
+                            }
+                        },
+                        {
+                            "homeAway": "away",
+                            "score": "0",
+                            "team": {
+                                "abbreviation": "BAL",
+                                "displayName": "Atletico Balboa",
+                                "shortDisplayName": "Atl Balboa",
+                                "name": "Atletico Balboa",
+                                "location": "Atletico Balboa",
+                                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/7369.png"
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

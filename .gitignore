@@ -1,0 +1,36 @@
+# Segredos e configuração local: NUNCA versionar
+.env
+.env.*
+!.env.example
+launcher/app/defaults.js
+**/config.js
+config.json
+*.key
+*.pem
+id_rsa*
+
+# Dados do servidor
+homeserver/postgres/
+homeserver/homebridge/
+homeserver/matter/
+homeserver/tailscale/
+homeserver/backup/
+homeserver/casa/var/
+homeserver/casa/vendor/
+homeserver/rec/dados/
+
+# Build e dependências
+node_modules/
+player/build/
+player/dist/
+player/dev/media/
+player/dev/shots/
+player/dev/*.log
+launcher/dist/
+*.ipk
+__pycache__/
+*.pyc
+
+# Sistema
+.DS_Store
+Thumbs.db

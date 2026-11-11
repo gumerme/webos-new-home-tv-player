@@ -1,0 +1,10 @@
+#!/bin/sh
+# AirPlay and ThinQ (iot-client, thinqai) are on-demand Luna services: ls-hubd spawns
+# them when something calls them during boot, so systemctl stop can't keep them down.
+# Ending them once boot settles frees their RAM; they only come back if called again.
+setsid sh -c '
+    sleep 240
+    for b in airplay iot-client lg.thinqai.adapter; do
+        pids=$(pidof "$b") && kill $pids
+    done
+' </dev/null >/dev/null 2>&1 &

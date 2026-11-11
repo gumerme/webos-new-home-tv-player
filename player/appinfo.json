@@ -1,0 +1,15 @@
+{
+  "id": "org.webostv.play",
+  "version": "2.0.12",
+  "vendor": "WebOS TV",
+  "type": "web",
+  "uiRevision": 2,
+  "main": "index.html",
+  "title": "WebOS TV Player",
+  "icon": "icon.png",
+  "largeIcon": "largeIcon.png",
+  "bgColor": "#0a0e1a",
+  "resolution": "1920x1080",
+  "disableBackHistoryAPI": true,
+  "handlesRelaunch": true
+}
