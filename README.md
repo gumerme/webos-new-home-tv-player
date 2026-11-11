@@ -12,7 +12,7 @@ A TV só desenha; recomendações, catálogo, grade, placares, rankings e legend
 [![Root](https://img.shields.io/badge/root-obrigatório-e06a62.svg)](#-root-é-obrigatório)
 [![Claude Code](https://img.shields.io/badge/instala_com-Claude_Code-ff9f0a.svg)](#-instalação-com-o-claude-code)
 
-<img src="docs/prints/player-01-inicio.jpg" width="900" alt="Início do Player: destaque com trailer, Gostei/Não gostei e Continuar assistindo">
+<img src="docs/prints/home-01-inicio.jpg" width="900" alt="Tela inicial da Home: relógio, clima e fileira de apps">
 
 </div>
 
