@@ -8,7 +8,7 @@ A TV só desenha; recomendações, catálogo, grade, placares, rankings e legend
 *homeserver* (Docker). Se o servidor cair, a TV continua funcionando com a última cópia guardada.
 
 [![License: MIT](https://img.shields.io/badge/licença-MIT-0a84ff.svg)](LICENSE)
-[![webOS](https://img.shields.io/badge/LG_webOS-4.x_a_10-30d158.svg)](#requisitos)
+[![webOS](https://img.shields.io/badge/testado-webOS_4.10_e_10.3-30d158.svg)](#requisitos)
 [![Root](https://img.shields.io/badge/root-obrigatório-e06a62.svg)](#-root-é-obrigatório)
 [![Claude Code](https://img.shields.io/badge/instala_com-Claude_Code-ff9f0a.svg)](#-instalação-com-o-claude-code)
 
@@ -143,7 +143,15 @@ Prints da TV real (1920×1080). O último é do simulador, com o homeserver desl
 
 ## Requisitos
 
-- **TV LG webOS com root** e Homebrew Channel (testado em webOS 10 e webOS 4.x).
+- **TV LG webOS com root** e Homebrew Channel. Testado em:
+
+  | TV | Ano | webOS | Navegador do sistema |
+  |---|---|---|---|
+  | LG 55UR8750PSA | 2023 | webOS 10.3 (firmware 33.31.75) | Chromium moderno |
+  | LG 43LM6300PSB | 2019 | webOS 4.10 | Chromium 53 |
+
+  Outras versões entre 4.x e 10.x devem funcionar, mas não foram testadas. A troca da Home tem um script
+  para cada família (`tv/home-takeover-webos10/` e `tv/home-takeover-webos4/`).
 - **Homeserver** Linux x86 com Docker e Docker Compose (testado em Rocky Linux 10, i3 com 8 GB de RAM).
   O recomendador baixa o MovieLens 32M (~1 GB) uma vez.
 - **Token do [TMDB](https://www.themoviedb.org/settings/api)** (grátis).
