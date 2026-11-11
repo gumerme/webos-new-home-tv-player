@@ -29,8 +29,10 @@ final class Tvs
      * POST tv/registrar {nome, modelo, duid, versao, webos} -> {token, status, codigo}.
      * TV nova entra "pendente" até um administrador aprovar no painel (Player › Listas e TVs) pelo código
      * mostrado na tela. Com PLAY_APROVACAO=0 entra "ativa" direto. Só aceita IP de rede local/Tailscale.
-     * A mesma TV (mesmo DUID) reaproveita a linha e troca o token; como o DUID vem da própria TV (pode ser
-     * forjado), com aprovação ligada a linha volta a "pendente". Bloqueada continua bloqueada.
+     * O DUID vem da própria TV e pode ser forjado: com aprovação ligada, um registro sem token nunca mexe numa
+     * TV já aprovada (cria outra linha pendente); só linha pendente ou bloqueada com o mesmo DUID é
+     * reaproveitada (token e código novos; a aprovação do painel confere o código). Sem aprovação
+     * (PLAY_APROVACAO=0) a mesma TV reaproveita a linha como antes. Bloqueada continua bloqueada.
      */
     public static function registrar(Pedido $p): array
     {
@@ -49,9 +51,12 @@ final class Tvs
         $codigo = Acesso::novoCodigo();
         $inicial = Acesso::exigeAprovacao() ? 'pendente' : 'ativa';
         $existente = $duid !== null ? Base::linha('select id, status, dispositivo_slug from play.tv where duid = ? order by id desc limit 1', [$duid]) : null;
+        if ($existente && $inicial === 'pendente' && $existente['status'] === 'ativa') {
+            $existente = null;   // não sequestra a TV aprovada: pede aprovação de novo numa linha nova
+        }
         if ($existente) {
             $l = Base::linha("update play.tv set token_hash = ?, codigo = ?, modelo = ?, webos = ?, versao_app = ?, ip = ?, visto_em = now(),
-                                     status = case when status = 'bloqueada' then 'bloqueada' else ? end
+                                     status = case when status in ('bloqueada', 'pendente') then status else ? end
                                where id = ? returning id, status, dispositivo_slug",
                 [Acesso::hash($token), $codigo, $limpo('modelo', 80), $limpo('webos', 40), $limpo('versao', 20), $ip, $inicial, (int) $existente['id']]);
         } else {

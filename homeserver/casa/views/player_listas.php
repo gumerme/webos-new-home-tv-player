@@ -149,7 +149,7 @@ $formConta = static function (?array $c) use ($csrf): string {
             <?php if ($t['status'] === 'pendente'): ?><span class="selo selo-info mono" title="Código mostrado na tela da TV"><?= e($t['codigo']) ?></span><?php endif; ?></td>
           <td class="acoes"><span class="ref-acoes">
             <?php if ($t['status'] !== 'ativa'): ?>
-            <form method="post"><input type="hidden" name="csrf" value="<?= $csrf ?>"><input type="hidden" name="acao" value="tv_aprovar"><input type="hidden" name="id" value="<?= (int) $t['id'] ?>"><input type="hidden" name="ancora" value="tvs">
+            <form method="post"><input type="hidden" name="csrf" value="<?= $csrf ?>"><input type="hidden" name="acao" value="tv_aprovar"><input type="hidden" name="id" value="<?= (int) $t['id'] ?>"><input type="hidden" name="codigo" value="<?= e((string) $t['codigo']) ?>"><input type="hidden" name="ancora" value="tvs">
               <button class="btn btn-primario"><?= Icone::svg('ok') ?>Aprovar</button></form>
             <?php else: ?>
             <form method="post" data-confirmar="Bloquear <?= e($t['nome']) ?>? O Player para de funcionar nela."><input type="hidden" name="csrf" value="<?= $csrf ?>"><input type="hidden" name="acao" value="tv_bloquear"><input type="hidden" name="id" value="<?= (int) $t['id'] ?>"><input type="hidden" name="ancora" value="tvs">

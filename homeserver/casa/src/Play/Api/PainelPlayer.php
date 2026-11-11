@@ -179,7 +179,14 @@ final class PainelPlayer
             case 'tv_aprovar':
             case 'tv_bloquear':
                 $novo = $acao === 'tv_aprovar' ? 'ativa' : 'bloqueada';
-                $nome = Base::valor('update play.tv set status = ? where id = ? returning nome', [$novo, $id]) ?? throw new \InvalidArgumentException('TV não encontrada.');
+                if ($novo === 'ativa') {
+                    // Aprova só o pedido que estava na tela: se a TV se registrou de novo (código novo), falha.
+                    $nome = Base::valor("update play.tv set status = 'ativa' where id = ? and codigo = ? and status <> 'ativa' returning nome",
+                        [$id, trim((string) ($_POST['codigo'] ?? ''))])
+                        ?? throw new \InvalidArgumentException('O código da TV mudou ou ela não existe mais. Confira o código na tela e aprove de novo.');
+                } else {
+                    $nome = Base::valor('update play.tv set status = ? where id = ? returning nome', [$novo, $id]) ?? throw new \InvalidArgumentException('TV não encontrada.');
+                }
                 Eventos::registrar('aparelho', $novo === 'ativa' ? 'ok' : 'aviso', "Player: $nome " . ($novo === 'ativa' ? 'aprovada' : 'bloqueada'), null, self::quem());
                 return $novo === 'ativa' ? "TV \"$nome\" aprovada: o Player abre sozinho em alguns segundos." : "TV \"$nome\" bloqueada.";
 
