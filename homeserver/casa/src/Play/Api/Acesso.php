@@ -79,12 +79,23 @@ final class Acesso
         return $c;
     }
 
+    /**
+     * TV nova precisa ser aprovada no painel? Padrão: sim. PLAY_APROVACAO=0 no .env desliga
+     * (qualquer aparelho da rede local vira TV ativa e pode ler a conta do painel).
+     */
+    public static function exigeAprovacao(): bool
+    {
+        return trim((string) getenv('PLAY_APROVACAO')) !== '0';
+    }
+
     /** Situação da TV -> erro (ou null se pode usar). Separado para os testes. */
     public static function barreira(array $tv): ?Erro
     {
         return match ($tv['status'] ?? '') {
-            // sem aprovação desde 08/11/2026: "pendente" (linha antiga) vale como ativa
-            'ativa', 'pendente' => null,
+            'ativa'     => null,
+            'pendente'  => self::exigeAprovacao()
+                ? new Erro('aguardando aprovação no painel', 403, ['codigo' => (string) ($tv['codigo'] ?? '')])
+                : null,
             'bloqueada' => new Erro('TV bloqueada no painel', 403, ['codigo' => (string) $tv['codigo'], 'bloqueada' => true]),
             default     => new Erro('não autorizado', 401),
         };

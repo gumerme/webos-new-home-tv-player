@@ -155,7 +155,11 @@ Prints da TV real (1920×1080). O último é do simulador, com o homeserver desl
 
 - Nenhuma senha, token ou lista vem neste repositório. Tudo fica no `.env` do servidor (modelo em
   [`homeserver/.env.example`](homeserver/.env.example)) e no banco do seu homeserver.
-- A API do Player só responde para a rede local (e Tailscale) e cada TV precisa ser **aprovada no painel**.
+- A API do Player só aceita registro da rede local (e Tailscale) e cada TV precisa ser **aprovada no painel**
+  pelo código mostrado na tela (`PLAY_APROVACAO=1`, padrão). Só TV aprovada recebe os dados do painel, que ela
+  guarda para tocar os canais quando o servidor cair.
+- Não coloque um proxy reverso na frente do `casa-web` sem ajustar a checagem de IP: com proxy, todo pedido
+  chega como `127.0.0.1` e conta como rede local.
 - `launcher/app/defaults.js`, `.env` e `config.json` estão no `.gitignore`.
 - O `helper.py` da TV escuta só em `127.0.0.1`.
 

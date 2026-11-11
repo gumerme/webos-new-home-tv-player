@@ -34,7 +34,12 @@ for ($i = 0; $i < 50; $i++) {
 ok(true, 'códigos de 4 caracteres sem 0/O/1/I/L');
 
 igual(null, Acesso::barreira(['status' => 'ativa', 'codigo' => 'AB12']), 'TV ativa passa');
-igual(null, Acesso::barreira(['status' => 'pendente', 'codigo' => 'AB12']), 'pendente (linha antiga) passa: sem aprovação');
+putenv('PLAY_APROVACAO');
+$e = Acesso::barreira(['status' => 'pendente', 'codigo' => 'AB12']);
+ok($e !== null && $e->getCode() === 403, 'pendente barrada (aprovação ligada por padrão)');
+putenv('PLAY_APROVACAO=0');
+igual(null, Acesso::barreira(['status' => 'pendente', 'codigo' => 'AB12']), 'pendente passa com PLAY_APROVACAO=0');
+putenv('PLAY_APROVACAO');
 ok(\Casa\Play\Api\Tvs::ipLocal('192.168.1.57') && \Casa\Play\Api\Tvs::ipLocal('100.124.1.70') && \Casa\Play\Api\Tvs::ipLocal('10.0.0.2')
     && \Casa\Play\Api\Tvs::ipLocal('172.20.0.1') && \Casa\Play\Api\Tvs::ipLocal('127.0.0.1'), 'IPs de casa aceitos no registro');
 ok(!\Casa\Play\Api\Tvs::ipLocal('8.8.8.8') && !\Casa\Play\Api\Tvs::ipLocal('172.32.0.1') && !\Casa\Play\Api\Tvs::ipLocal('100.128.0.1')

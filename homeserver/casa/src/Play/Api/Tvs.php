@@ -27,9 +27,10 @@ final class Tvs
 
     /**
      * POST tv/registrar {nome, modelo, duid, versao, webos} -> {token, status, codigo}.
-     * Sem aprovação (decisão 08/11/2026): o Player só existe na rede de casa, então TV nova já entra "ativa".
-     * Só aceita IP de rede local/Tailscale. A mesma TV (mesmo DUID) reaproveita a linha e troca o token;
-     * bloqueada no painel continua bloqueada.
+     * TV nova entra "pendente" até um administrador aprovar no painel (Player › Listas e TVs) pelo código
+     * mostrado na tela. Com PLAY_APROVACAO=0 entra "ativa" direto. Só aceita IP de rede local/Tailscale.
+     * A mesma TV (mesmo DUID) reaproveita a linha e troca o token; como o DUID vem da própria TV (pode ser
+     * forjado), com aprovação ligada a linha volta a "pendente". Bloqueada continua bloqueada.
      */
     public static function registrar(Pedido $p): array
     {
@@ -46,17 +47,18 @@ final class Tvs
         }
         $token = Acesso::novoToken();
         $codigo = Acesso::novoCodigo();
+        $inicial = Acesso::exigeAprovacao() ? 'pendente' : 'ativa';
         $existente = $duid !== null ? Base::linha('select id, status, dispositivo_slug from play.tv where duid = ? order by id desc limit 1', [$duid]) : null;
         if ($existente) {
             $l = Base::linha("update play.tv set token_hash = ?, codigo = ?, modelo = ?, webos = ?, versao_app = ?, ip = ?, visto_em = now(),
-                                     status = case when status = 'bloqueada' then 'bloqueada' else 'ativa' end
+                                     status = case when status = 'bloqueada' then 'bloqueada' else ? end
                                where id = ? returning id, status, dispositivo_slug",
-                [Acesso::hash($token), $codigo, $limpo('modelo', 80), $limpo('webos', 40), $limpo('versao', 20), $ip, (int) $existente['id']]);
+                [Acesso::hash($token), $codigo, $limpo('modelo', 80), $limpo('webos', 40), $limpo('versao', 20), $ip, $inicial, (int) $existente['id']]);
         } else {
             $l = Base::linha("insert into play.tv (nome, modelo, duid, webos, versao_app, token_hash, codigo, ip, visto_em, perfil_id, status)
-                              values (?, ?, ?, ?, ?, ?, ?, ?, now(), (select min(id) from play.perfil), 'ativa')
+                              values (?, ?, ?, ?, ?, ?, ?, ?, now(), (select min(id) from play.perfil), ?)
                               returning id, status, dispositivo_slug",
-                [$nome, $limpo('modelo', 80), $duid, $limpo('webos', 40), $limpo('versao', 20), Acesso::hash($token), $codigo, $ip]);
+                [$nome, $limpo('modelo', 80), $duid, $limpo('webos', 40), $limpo('versao', 20), Acesso::hash($token), $codigo, $ip, $inicial]);
         }
         if (empty($l['dispositivo_slug']) && ($slug = Acesso::acharAparelho($ip))) {
             Base::exec('update play.tv set dispositivo_slug = ? where id = ?', [$slug, (int) $l['id']]);
@@ -115,8 +117,9 @@ final class Tvs
     /** GET conta: a TV guarda cópia para montar links se o homeserver cair. */
     public static function conta(Pedido $p): array
     {
-        if (!$p->ctx->tv && !$p->ctx->ehAdmin()) {
-            throw new Erro('só a TV ou um administrador', 403);
+        // Só TV aprovada (a barreira do token já recusa pendente/bloqueada) ou administrador do painel.
+        if (!($p->ctx->tv && ($p->ctx->tv['status'] ?? '') === 'ativa') && !$p->ctx->ehAdmin()) {
+            throw new Erro('só a TV aprovada ou um administrador', 403);
         }
         $c = Base::conta() ?? throw new Erro('nenhuma lista IPTV ativa no painel', 404);
         return [

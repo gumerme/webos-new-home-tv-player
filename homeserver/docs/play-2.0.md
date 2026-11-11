@@ -299,8 +299,9 @@ lista, `prefs.atrasos`, `evento`/`terminado` no sinal, 401 `registrar`, 403 `blo
 
 ## Mudanças no contrato (08/11/2026, noite — app 2.0.1)
 
-- **Sem aprovação de TV**: `tv/registrar` só aceita IP de rede de casa/Tailscale (`Tvs::ipLocal`; fora = 403) e já
-  devolve `status:"ativa"`. Linha antiga `pendente` vale como ativa (`Acesso::barreira`). Bloqueada continua bloqueada.
+- **Aprovação de TV configurável** (versão pública): `tv/registrar` só aceita IP de rede de casa/Tailscale (`Tvs::ipLocal`;
+  fora = 403). Com `PLAY_APROVACAO=1` (padrão) a TV nasce `pendente` (403 com `codigo` até aprovar no painel; re-registro
+  pelo mesmo `duid` volta a `pendente`) e `GET conta` só responde a TV `ativa`. Com `PLAY_APROVACAO=0` já nasce `ativa`.
 - **Sem escolha de perfil na TV**: o app usa `estado.perfil` (padrão da TV), senão o perfil "Casa". As rotas de perfis
   continuam no servidor, sem uso pela TV.
 - **`inicio.top_brasil`**: `{atualizado, itens:[Cartao+{posicao}]}` ou null — ranking geral do JustWatch Brasil (todas as
